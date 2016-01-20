@@ -1,0 +1,34 @@
+{
+  "name": "sal-nanostack-driver-k64f-eth",
+  "version": "1.0.0",
+  "description": "Nanostack abstraction layer for k64f ethernet",
+  "keywords": [
+    "mbed",
+    "network",
+    "k64f",
+    "mbed-official"
+  ],
+  "author": "Hasnain Virk <hasnain.virk@arm.com>",
+  "repository": {
+    "url": "git@github.com:ARMmbed/sal-nanostack-driver-k64f-eth.git",
+    "type": "git"
+  },
+  "homepage": "https://github.com/ARMmbed/sal-nanostack-driver-k64f-eth",
+  "licenses": [
+    {
+      "url": "https://spdx.org/licenses/BSD-3-Clause",
+      "type": "BSD-3-Clause"
+    },
+    {
+      "url": "https://spdx.org/licenses/Apache-2.0",
+      "type": "Apache-2.0"
+    }
+  ],
+  "extraIncludes": [
+    "sal-nanostack-driver-k64f-eth"
+  ],
+  "dependencies": {
+    "sal-stack-nanostack": "^1.0.0"
+  },
+  "targetDependencies": {}
+}
