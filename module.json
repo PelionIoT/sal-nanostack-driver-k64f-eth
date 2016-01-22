@@ -28,7 +28,8 @@
     "sal-nanostack-driver-k64f-eth"
   ],
   "dependencies": {
-    "sal-stack-nanostack": "^1.0.0"
+    "sal-stack-nanostack": "^3.0.0",
+    "atmel-rf-driver": "^1.0.0"
   },
   "targetDependencies": {}
 }
