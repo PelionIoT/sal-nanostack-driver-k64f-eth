@@ -29,12 +29,13 @@
 */
 
 /* Modified by mbed for the lwIP port */
-
+#include <string.h>
 #include "fsl_enet_driver.h"
 #include "fsl_enet_hal.h"
 #include "fsl_clock_manager.h"
 #include "fsl_interrupt_manager.h"
-#include <string.h>
+#include  "mbed-drivers/wait_api.h"
+
 
 
 /*******************************************************************************
@@ -103,7 +104,7 @@ uint32_t enet_mii_read(uint32_t instance, uint32_t phyAddr, uint32_t phyReg, uin
         {
             break;
         }
-        osDelay(1);
+        wait_ms(1);
     }
 
     /* Check for timeout*/
@@ -152,7 +153,7 @@ uint32_t enet_mii_write(uint32_t instance, uint32_t phyAddr, uint32_t phyReg, ui
         {
             break;
         }
-        osDelay(1);
+        wait_ms(1);
     }
 
     /* Check for timeout*/

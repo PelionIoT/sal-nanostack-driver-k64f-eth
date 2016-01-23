@@ -241,7 +241,7 @@ static void k64f_eth_set_address(uint8_t *address_ptr){
         #endif
     }
     /* When pointer to the MAC address is given. It could be 48-bit EUI generated
-     * from Radio, like atmel RF. Or manually inserted Preferred method.*/
+     * from Radio, like atmel RF or manually inserted. Preferred method.*/
     else{
         memcpy(&ethernet_mac_config->macAddr, address_ptr, kEnetMacAddrLen);
     }
@@ -268,6 +268,8 @@ static int8_t arm_eth_phy_k64f_address_write(phy_address_type_e address_type, ui
 
     return retval;
 }
+
+/* Interrupt handling*/
 
 void eth_enable_interrupts(void) {
   enet_hal_config_interrupt(BOARD_DEBUG_ENET_INSTANCE_ADDR, (kEnetTxFrameInterrupt | kEnetRxFrameInterrupt), true);
