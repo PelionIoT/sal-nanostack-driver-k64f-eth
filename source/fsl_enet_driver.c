@@ -42,7 +42,8 @@
  ******************************************************************************/
 /*! @brief Define ENET's IRQ list */
 
-//void *enetIfHandle;
+void *enetIfHandle;
+
 //
 ///*! @brief Define MAC driver API structure and for application of stack adaptor layer*/
 //const enet_mac_api_t g_enetMacApi =
@@ -395,7 +396,7 @@ uint32_t enet_mac_init(enet_dev_if_t * enetIfPtr, enet_rxbd_config_t *rxbdCfg,
     devNumber = enetIfPtr->deviceNumber;
 
     /* Store the global ENET structure for ISR input parameters */
-   // enetIfHandle = enetIfPtr;
+    enetIfHandle = enetIfPtr;
 
     /* Turn on ENET module clock gate */
     CLOCK_SYS_EnableEnetClock(0U);

@@ -21,6 +21,14 @@
 
 extern void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*app_ipv6_init_cb)(uint8_t, uint8_t));
 
+typedef struct Ethernet_BufferDesc_Ring_t{
+    volatile uint32_t rx_free_desc; /* No. of free rx buffer descriptors*/
+    uint8_t *rx_buf_desc_start_addr; /* Pointer to RX buffer descriptor start address*/
+    uint8_t *tx_buf_desc_start_addr; /* Pointer to TX buffer descriptor start address*/
+    uint8_t rx_fill_index; /* tells how much RX buffer descriptor ring is filled already*/
+    uint8_t tx_consume_index, tx_produce_index;
+}Ethernet_BufferDesc_Ring_t;
+
 
 
 #endif /* K64F_ETH_NANOSTACK_PORT_H_ */
