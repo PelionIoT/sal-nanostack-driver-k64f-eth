@@ -28,7 +28,8 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-/* Modified by mbed for the lwIP port */
+/* Modified by mbed for the Nanostack (6LoWPAN) port */
+
 #include <string.h>
 #include "fsl_enet_driver.h"
 #include "fsl_enet_hal.h"
@@ -42,9 +43,6 @@
  * Variables
  ******************************************************************************/
 /*! @brief Define ENET's IRQ list */
-
-void *enetIfHandle;
-
 //
 ///*! @brief Define MAC driver API structure and for application of stack adaptor layer*/
 //const enet_mac_api_t g_enetMacApi =

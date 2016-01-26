@@ -19,16 +19,18 @@
 #define ENET_TXBuff_SIZE              (kEnetMaxFrameSize)
 
 
-extern void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*app_ipv6_init_cb)(uint8_t, uint8_t));
+extern void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*app_ipv6_init_cb)(uint8_t, int8_t));
 
 typedef struct Ethernet_BufferDesc_Ring_t{
-    volatile uint32_t rx_free_desc; /* No. of free rx buffer descriptors*/
+    volatile uint8_t rx_free_desc; /* No. of free rx buffer descriptors*/
     uint8_t *rx_buf_desc_start_addr; /* Pointer to RX buffer descriptor start address*/
     uint8_t *tx_buf_desc_start_addr; /* Pointer to TX buffer descriptor start address*/
     uint8_t rx_fill_index; /* tells how much RX buffer descriptor ring is filled already*/
-    uint8_t tx_consume_index, tx_produce_index;
+    uint8_t tx_buf_des_used;
+    uint8_t tx_buf_des_unused;
+    uint8_t *rx_data_buf_ptr[ENET_RXBD_NUM];
+    uint8_t *tx_data_buf_ptr[ENET_TXBD_NUM];
+    void *txb_aligned[ENET_TXBD_NUM]; /**< TX aligned buffers (if needed) */
 }Ethernet_BufferDesc_Ring_t;
-
-
 
 #endif /* K64F_ETH_NANOSTACK_PORT_H_ */
