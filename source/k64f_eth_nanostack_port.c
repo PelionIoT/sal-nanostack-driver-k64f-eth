@@ -48,6 +48,10 @@ static phy_device_driver_s eth_device_driver;
 static Ethernet_BufferDesc_Ring_t *buf_desc_ring;
 static enet_dev_if_t *ethernet_iface_ptr;
 static enet_mac_config_t ethernet_mac_config[HW_ENET_INSTANCE_COUNT];
+static enet_phy_config_t enetPhyCfg[HW_ENET_INSTANCE_COUNT] =
+{
+  {0, false}
+};
 static IRQn_Type enet_irq_ids[HW_ENET_INSTANCE_COUNT][FSL_FEATURE_ENET_INTERRUPT_COUNT];
 static uint8_t enetIntMap[kEnetIntNum];
 static uint32_t device_id = BOARD_DEBUG_ENET_INSTANCE_ADDR;
@@ -72,8 +76,8 @@ void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*driver_status_cb)(uint
         eth_driver_enabled = arm_net_phy_register(&eth_device_driver);
         driver_readiness_status_callback = driver_status_cb;
 
-        if (!eth_driver_enabled){
-            tr_error("Ethernet Driver failed to register with Stack.");
+        if (eth_driver_enabled < 0){
+            tr_error("Ethernet Driver failed to register with Stack. RetCode=%i", eth_driver_enabled);
             driver_readiness_status_callback(0, eth_driver_enabled);
         }
 
@@ -82,6 +86,10 @@ void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*driver_status_cb)(uint
            if(eth_driver_enabled==-1){
                tr_error("Failed to Initialize Ethernet Driver.");
                driver_readiness_status_callback(0, eth_driver_enabled);
+           }
+           else{
+               tr_info("Ethernet Driver Initialized.");
+               driver_readiness_status_callback(1, eth_driver_enabled);
            }
         }
     }
@@ -92,15 +100,18 @@ static int8_t k64f_eth_initialize(uint8_t *mac_ptr){
     int8_t retval = -1;
     ethernet_iface_ptr = MEM_ALLOC(sizeof(enet_dev_if_t));
     if (!ethernet_iface_ptr) {
-       return -1;
+        tr_debug("Memory Allocation Failed. ethernet_iface_ptr");
+        return -1;
      }
     buf_desc_ring = MEM_ALLOC(sizeof(Ethernet_BufferDesc_Ring_t));
-    if (buf_desc_ring) {
-       return -1;
+    if (!buf_desc_ring) {
+        tr_debug("Memory Allocation Failed. buf_desc_ring");
+        return -1;
      }
     ethernet_iface_ptr->macContextPtr = MEM_ALLOC (sizeof(enet_mac_context_t));
     if (!ethernet_iface_ptr->macContextPtr) {
-      return -1;
+        tr_debug("Memory Allocation Failed. mac_context_ptr");
+        return -1;
     }
 
     enet_rxbd_config_t rxbdCfg;
@@ -135,8 +146,12 @@ static int8_t k64f_eth_initialize(uint8_t *mac_ptr){
     ethernet_mac_config->txAcceler.isShift16Enabled = true;
 
     /* Setup PHY related configuration settings*/
-    ethernet_iface_ptr->phyCfgPtr->isLoopEnabled = false;
-    ethernet_iface_ptr->phyCfgPtr->phyAddr = 0;
+    ethernet_iface_ptr->phyCfgPtr = enetPhyCfg;
+    ethernet_iface_ptr->macApiPtr = &g_enetMacApi;
+    ethernet_iface_ptr->phyApiPtr = (void *)&g_enetPhyApi;
+
+    /* Add MAC configuration to Ethernet_iface_ptr*/
+    ethernet_iface_ptr->macCfgPtr = ethernet_mac_config;
 
     /* Setup RX buffer descriptors*/
     retval = k64f_eth_rx_buf_desc_setup(&rxbdCfg);
@@ -154,12 +169,14 @@ static int8_t k64f_eth_initialize(uint8_t *mac_ptr){
     if(enet_mac_init(ethernet_iface_ptr, &rxbdCfg, &txbdCfg)==kStatus_ENET_Success){
         /* Initialize PHY layer*/
         if (ethernet_iface_ptr->macCfgPtr->isPhyAutoDiscover) {
-          if (((enet_phy_api_t *)(ethernet_iface_ptr->phyApiPtr))->phy_auto_discover(ethernet_iface_ptr) != kStatus_PHY_Success){
-            return -1;
-          }
+            if (((enet_phy_api_t *)(ethernet_iface_ptr->phyApiPtr))->phy_auto_discover(ethernet_iface_ptr) != kStatus_PHY_Success){
+              tr_debug("INIT_MAC. Auto discover fail.");
+              return -1;
+            }
         }
         if (((enet_phy_api_t *)(ethernet_iface_ptr->phyApiPtr))->phy_init(ethernet_iface_ptr) != kStatus_PHY_Success){
-          return -1;
+            tr_debug("INIT_MAC. PHY was not initialized.");
+            return -1;
         }
 
         tr_info("Ethernet Interface Initialized. Succes");
@@ -174,8 +191,8 @@ static int8_t k64f_eth_rx_buf_desc_setup(enet_rxbd_config_t *rxbdCfg){
     uint8_t *rxBdPtr;
     uint32_t rxBufferSizeAligned;
 
-    /* Allocate memory to RX buffer descriptors */
-    rxBdPtr = MEM_ALLOC(enet_hal_get_bd_size()*ethernet_iface_ptr->macCfgPtr->rxBdNumber+ENET_BD_ALIGNMENT);
+    /* Allocate memory to RX buffer descriptors - 29x16+8 Bytes*/
+    rxBdPtr = MEM_ALLOC(sizeof(enet_bd_struct_t)*ethernet_iface_ptr->macCfgPtr->rxBdNumber+ENET_BD_ALIGNMENT);
 
     if(!rxBdPtr){
         tr_error("Could not allocate memory for rx buffer descriptors.");
@@ -447,10 +464,6 @@ static int8_t k64f_eth_send(uint8_t *data_ptr, uint16_t data_len){
     }
 
     /* Check data alignment*/
-    if (((uint32_t)tx_buf & (TX_BUF_ALIGNMENT - 1)) != 0){
-        tr_error("tx_buf not alligned.");
-        return -1;
-    }
 
     /* Tell that to the tx buffer descriptor*/
     buf_desc_ring->txb_aligned[index] = tx_buf;
@@ -505,7 +518,7 @@ static void k64f_eth_set_address(uint8_t *address_ptr){
     /* When pointer to the MAC address is given. It could be 48-bit EUI generated
      * from Radio, like atmel RF or manually inserted. Preferred method.*/
     else{
-        memcpy(&ethernet_mac_config->macAddr, address_ptr, kEnetMacAddrLen);
+        memcpy(ethernet_mac_config->macAddr, address_ptr, kEnetMacAddrLen);
     }
 
 }

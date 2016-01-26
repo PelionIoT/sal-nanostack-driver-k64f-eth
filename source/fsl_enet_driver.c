@@ -45,19 +45,19 @@ void *enetIfHandle;
 /*! @brief Define ENET's IRQ list */
 //
 ///*! @brief Define MAC driver API structure and for application of stack adaptor layer*/
-//const enet_mac_api_t g_enetMacApi =
-//{
-//    enet_mac_init,
-//    NULL, // enet_mac_deinit,
-//    NULL, // enet_mac_send,
-//#if !ENET_RECEIVE_ALL_INTERRUPT
-//    NULL, // enet_mac_receive,
-//#endif
-//    enet_mii_read,
-//    enet_mii_write,
-//    NULL, // enet_mac_add_multicast_group,
-//    NULL, //enet_mac_leave_multicast_group,
-//};
+const enet_mac_api_t g_enetMacApi =
+{
+    enet_mac_init,
+    NULL, // enet_mac_deinit,
+    NULL, // enet_mac_send,
+#if !ENET_RECEIVE_ALL_INTERRUPT
+    NULL, // enet_mac_receive,
+#endif
+    enet_mii_read,
+    enet_mii_write,
+    NULL, // enet_mac_add_multicast_group,
+    NULL, //enet_mac_leave_multicast_group,
+};
 /*******************************************************************************
  * Code
  ******************************************************************************/
