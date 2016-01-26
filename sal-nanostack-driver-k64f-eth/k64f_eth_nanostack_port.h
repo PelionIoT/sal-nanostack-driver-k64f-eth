@@ -18,8 +18,15 @@
 #define ENET_RXBuff_SIZE              (kEnetMaxFrameSize)
 #define ENET_TXBuff_SIZE              (kEnetMaxFrameSize)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*app_ipv6_init_cb)(uint8_t, int8_t));
+
+#ifdef __cplusplus
+}
+#endif
 
 typedef struct Ethernet_BufferDesc_Ring_t{
     volatile uint8_t rx_free_desc; /* No. of free rx buffer descriptors*/
