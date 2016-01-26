@@ -37,7 +37,7 @@
 #include "fsl_interrupt_manager.h"
 #include  "mbed-drivers/wait_api.h"
 
-
+void *enetIfHandle;
 
 /*******************************************************************************
  * Variables
