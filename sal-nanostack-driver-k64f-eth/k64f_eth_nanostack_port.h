@@ -34,8 +34,8 @@ typedef struct Ethernet_BufferDesc_Ring_t{
     uint8_t *rx_buf_desc_start_addr; /* Pointer to RX buffer descriptor start address*/
     uint8_t *tx_buf_desc_start_addr; /* Pointer to TX buffer descriptor start address*/
     uint8_t rx_fill_index; /* tells how much RX buffer descriptor ring is filled already*/
-    uint8_t tx_buf_des_used;
-    uint8_t tx_buf_des_unused;
+    uint8_t tx_buf_busy_index;
+    uint8_t tx_buf_free_index;
     uint8_t *rx_data_buf_ptr[ENET_RXBD_NUM];
     uint8_t *tx_data_buf_ptr[ENET_TXBD_NUM];
     void *txb_aligned[ENET_TXBD_NUM]; /**< TX aligned buffers (if needed) */

@@ -228,7 +228,7 @@ static int8_t k64f_eth_tx_buf_desc_setup(enet_txbd_config_t *txbdCfg){
     }
 
     buf_desc_ring->tx_buf_desc_start_addr = (uint8_t *)ENET_ALIGN((uint32_t)txBdPtr, ENET_BD_ALIGNMENT);
-    buf_desc_ring->tx_buf_des_used = buf_desc_ring->tx_buf_des_unused = 0;
+    buf_desc_ring->tx_buf_busy_index = buf_desc_ring->tx_buf_free_index = 0;
 
     txbdCfg->txBdPtrAlign = buf_desc_ring->tx_buf_desc_start_addr;
     txbdCfg->txBufferNum = ethernet_iface_ptr->macCfgPtr->txBdNumber;
@@ -245,7 +245,10 @@ static int8_t arm_eth_phy_k64f_tx(uint8_t *data_ptr, uint16_t data_len, uint8_t 
     int retval = -1;
 
     if(data_len){
+        tr_debug("Nanostack wishes to transmit. Data_len=%i",data_len);
+        eth_disable_interrupts();
         retval = k64f_eth_send(data_ptr, data_len);
+        eth_enable_interrupts();
     }
 
     (void)data_flow;
@@ -393,8 +396,10 @@ static void tx_queue_reclaim(volatile enet_bd_struct_t *bdPtr)
     uint8_t index = 0;
 
     /* Traverse all descriptors, looking for the ones modified by the uDMA */
-    index = buf_desc_ring->tx_buf_des_used;
-    while (index != buf_desc_ring->tx_buf_des_unused && !(bdPtr[index].control & kEnetTxBdReady)) {
+    index = buf_desc_ring->tx_buf_busy_index;
+    tr_debug("Going to reclaim TX queue as per interrupt. Used BDs = %i", index);
+
+    while (index != buf_desc_ring->tx_buf_free_index && !(bdPtr[index].control & kEnetTxBdReady)) {
         if (buf_desc_ring->txb_aligned[index]) {
             MEM_FREE(buf_desc_ring->txb_aligned[index]);
             buf_desc_ring->txb_aligned[index] = NULL;
@@ -405,8 +410,9 @@ static void tx_queue_reclaim(volatile enet_bd_struct_t *bdPtr)
         }
         bdPtr[index].controlExtend2 &= ~TX_DESC_UPDATED_MASK;
         index = (index + 1) % ENET_TXBD_NUM;
+        tr_debug("Reclaimed BufferDescriptor[%i].", index);
     }
-    buf_desc_ring->tx_buf_des_used = index;
+    buf_desc_ring->tx_buf_free_index = index;
 }
 
 uint8_t k64f_is_tx_ready()
@@ -414,8 +420,8 @@ uint8_t k64f_is_tx_ready()
     uint8_t fb;
     uint8_t idx, cidx;
 
-    cidx = buf_desc_ring->tx_buf_des_used;
-    idx = buf_desc_ring->tx_buf_des_unused;
+    cidx = buf_desc_ring->tx_buf_free_index;
+    idx = buf_desc_ring->tx_buf_busy_index;
 
     /* Determine number of free buffers */
     if (idx == cidx)
@@ -448,8 +454,9 @@ static int8_t k64f_eth_send(uint8_t *data_ptr, uint16_t data_len){
     uint8_t *tx_buf = 0;
     uint8_t index = 0;
 
-    /* Check which one of the TX buffer descriptor is free */
-    index = buf_desc_ring->tx_buf_des_unused;
+    /* Get the index of the Free TX descriptor */
+    index = buf_desc_ring->tx_buf_free_index;
+    tr_debug("buf_desc_ring->tx_buf_free_index = %i", index);
 
     if(data_len>ENET_TXBuff_SIZE){
         tr_error("Packet size bigger than ENET_TXBuff_SIZE.");
@@ -464,34 +471,45 @@ static int8_t k64f_eth_send(uint8_t *data_ptr, uint16_t data_len){
     }
 
     /* Check data alignment*/
+//    if (((uint32_t)tx_buf & (TX_BUF_ALIGNMENT - 1)) != 0){
+//        tr_error("tx_buf not alligned.");
+//        return -1;
+//    }
 
     /* Tell that to the tx buffer descriptor*/
-    buf_desc_ring->txb_aligned[index] = tx_buf;
+    buf_desc_ring->txb_aligned[index] = NULL;
 
     /* Copy the data buffer in the local buffer*/
     memcpy(tx_buf, data_ptr, data_len);
 
     /* Check if there are any buffer descriptors free */
     uint8_t descriptor_num = k64f_is_tx_ready();
+    tr_debug("Free TX descriptors = %i", descriptor_num);
+
+    if(descriptor_num < 1){
+        tr_error("TX buf descriptors full. Can't queue packet.");
+        return -1;
+    }
 
     /* Iterate over the descriptors and send packet when the first
      * opportunity arrives */
-    while (descriptor_num > 0) {
-
-        descriptor_num--;
-
-        if (tx_buf != NULL) {
-            if (descriptor_num==0)
+//    while (descriptor_num > 0) {
+//
+//        descriptor_num--;
+//
+//        if (tx_buf != NULL) {
+            if (index==7)
                 k64f_update_txbds(index, tx_buf, data_len, 1);
             else
-                k64f_update_txbds(index, tx_buf, data_len, 0);
+                k64f_update_txbds(descriptor_num, tx_buf, data_len, 0);
             buf_desc_ring->tx_data_buf_ptr[index] = NULL;
-            tr_debug("Packet Sent. Data length = %i, from BD = %i", data_len, index);
-        }
-    }
+            tr_info("Packet Sent. Data length = %i, from BD = %i", data_len, index);
+  //      }
+  //  }
 
     index = (index + 1) % ENET_TXBD_NUM;
-    buf_desc_ring->tx_buf_des_used = index;
+    buf_desc_ring->tx_buf_busy_index = index;
+    tr_debug("Busy Buf descriptors = %i.", index);
     enet_hal_active_txbd(BOARD_DEBUG_ENET_INSTANCE_ADDR);
 
     return 0;
