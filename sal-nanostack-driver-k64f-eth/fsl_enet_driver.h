@@ -55,6 +55,122 @@
 /*! @brief Defines the alignment operation.*/
 #define ENET_ALIGN(x,align)        ((unsigned int)((x) + ((align)-1)) & (unsigned int)(~(unsigned int)((align)- 1)))
 
+/* Gets the control and the status region of the receive/transmit buffer descriptors. */
+#define ENET_BD_CTL_MASK                     (1 << 0)
+/* Gets the extended control region of the transmit buffer descriptors. */
+#define ENET_RX_BD_EXT_CTL_MASK              (1 << 1)
+/* Gets the extended control region one of the receive buffer descriptor. */
+#define ENET_RX_BD_EXT_CTL1_MASK             (1 << 2)
+/* Gets the extended control region two of the receive buffer descriptor. */
+#define ENET_RX_BD_EXT_CTL2_MASK             (1 << 3)
+/* Gets the data length of the buffer descriptors. */
+#define ENET_BD_LEN_MASK                     (1 << 5)
+/* Gets  the timestamp of the buffer descriptors. */
+#define ENET_BD_TIMESTAMP_MASK               (1 << 6)
+/* Check if input buffer descriptor is the last one in the ring buffer */
+#define ENET_RX_BD_WRAP_FLAG_MASK            (1 << 7)
+/* Check if buffer descriptor empty flag is set. */
+#define ENET_RX_BD_EMPTY_FLAG_MASK           (1 << 8)
+/* Check if buffer descriptor truncate flag is set. */
+#define ENET_RX_BD_TRUNC_FLAG_MASK           (1 << 9)
+/* Check if buffer descriptor last flag is set. */
+#define ENET_RX_BD_LAST_FLAG_MASK            (1 << 10)
+/* Check if buffer descriptor ready flag is set. */
+#define ENET_TX_BD_READY_FLAG_MASK           (1 << 11)
+/* Check if buffer descriptor last flag is set. */
+#define ENET_TX_BD_LAST_FLAG_MASK            (1 << 12)
+/* Check if buffer descriptor wrap flag is set. */
+#define ENET_TX_BD_WRAP_FLAG_MASK            (1 << 13)
+/* Check if buffer descriptor Receive over run flag is set. */
+#define ENET_RX_BD_OVERRUN_FLAG_MASK         (1 << 14)
+/* Check if buffer descriptor Receive length violation flag is set. */
+#define ENET_RX_BD_LEN_VIOLAT_FLAG_MASK      (1 << 15)
+/* Check if buffer descriptor Receive non-octet aligned frame flag is set. */
+#define ENET_RX_BD_NO_OCTET_FLAG_MASK        (1 << 16)
+/* Check if buffer descriptor Receive CRC error flag is set. */
+#define ENET_RX_BD_CRC_ERR_FLAG_MASK         (1 << 17)
+/* Check if buffer descriptor late collision frame discard flag is set. */
+#define ENET_RX_BD_COLLISION_FLAG_MASK       (1 << 18)
+/* Check if buffer descriptor TxErr flag is set. */
+#define ENET_TX_BD_TX_ERR_FLAG_MASK          (1 << 19)
+/* Check if buffer descriptor Transmit excess collision flag is set. */
+#define ENET_TX_BD_EXC_COL_FLAG_MASK         (1 << 20)
+/* Check if buffer descriptor Transmit late collision flag is set. */
+#define ENET_TX_BD_LATE_COL_FLAG_MASK        (1 << 21)
+/* Check if buffer descriptor Transmit underflow flag is set. */
+#define ENET_TX_BD_UNDERFLOW_FLAG_MASK       (1 << 22)
+/* Check if buffer descriptor Transmit overflow flag is set. */
+#define ENET_TX_BD_OVERFLOW_FLAG_MASK        (1 << 23)
+/* Check if buffer descriptor Transmit timestamp flag is set. */
+#define ENET_TX_BD_TIMESTAMP_FLAG_MASK       (1 << 24)
+
+/* If input buffer descriptor is the last one, equals 1 */
+#define ENET_RX_BD_WRAP_FLAG                   (1 << 0)
+/* If buffer descriptor empty flag is set, equals 1 */
+#define ENET_RX_BD_EMPTY_FLAG                  (1 << 1)
+/* If buffer descriptor truncate flag is set, equals 1 */
+#define ENET_RX_BD_TRUNC_FLAG                  (1 << 2)
+/* If buffer descriptor last flag is set, equals 1 */
+#define ENET_RX_BD_LAST_FLAG                   (1 << 3)
+/* If buffer descriptor ready flag is set, equals 1 */
+#define ENET_TX_BD_READY_FLAG                  (1 << 4)
+/* If buffer descriptor last flag is set, equals 1 */
+#define ENET_TX_BD_LAST_FLAG                   (1 << 5)
+/* If buffer descriptor last flag is set, equals 1 */
+#define ENET_TX_BD_WRAP_FLAG                   (1 << 6)
+/* If buffer descriptor Receive over run flag is set, equals 1 */
+#define ENET_RX_BD_OVERRUN_FLAG                (1 << 7)
+/* If buffer descriptor Receive length violation flag is set, equals 1 */
+#define ENET_RX_BD_LEN_VIOLAT_FLAG             (1 << 8)
+/* If buffer descriptor Receive non-octet aligned frame flag is set, equals 1 */
+#define ENET_RX_BD_NO_OCTET_FLAG               (1 << 9)
+/* If buffer descriptor Receive crc error flag is set, equals 1 */
+#define ENET_RX_BD_CRC_ERR_FLAG                (1 << 10)
+/* If buffer descriptor late collision frame discard flag is set, equals 1 */
+#define ENET_RX_BD_COLLISION_FLAG              (1 << 11)
+/* If buffer descriptor TxRrr flag is set, equals 1 */
+#define ENET_TX_BD_TX_ERR_FLAG                 (1 << 12)
+/* If buffer descriptor Transmit excess collision flag is set, equals 1 */
+#define ENET_TX_BD_EXC_COL_ERR_FLAG            (1 << 13)
+/* If buffer descriptor Transmit late collision flag is set, equals 1 */
+#define ENET_TX_BD_LATE_COL_ERR_FLAG           (1 << 14)
+/* If buffer descriptor Transmit underflow flag is set, equals 1 */
+#define ENET_TX_BD_UNDERFLOW_ERR_FLAG          (1 << 15)
+/* If buffer descriptor Transmit overflow flag is set, equals 1 */
+#define ENET_TX_BD_OVERFLOW_FLAG               (1 << 16)
+/* If buffer descriptor Transmit timestamp flag is set, equals 1 */
+#define ENET_TX_BD_TIMESTAMP_FLAG              (1 << 17)
+
+/*! @brief The buffer descriptor attribute */
+typedef struct EnetBdAttr
+{
+    uint16_t bdCtl;           /*!< Buffer descriptor control field */
+    uint16_t rxBdExtCtl;      /*!< Buffer descriptor extend control field  */
+    uint16_t rxBdExtCtl1;     /*!< Buffer descriptor extend control field 1 */
+    uint16_t rxBdExtCtl2;     /*!< Buffer descriptor extend control field 2 */
+    uint16_t bdLen;           /*!< Buffer descriptor data length field */
+    uint32_t bdTimestamp;     /*!< Buffer descriptor time stamp field */
+    uint64_t flags;           /*!< The status flag in the buffer descriptor */
+}enet_bd_attr_t;
+
+/*! @brief Defines the structure for ENET buffer descriptors status.*/
+typedef struct ENETBuffDescripContext
+{
+    volatile enet_bd_struct_t * rxBdBasePtr;   /*!< Receive buffer descriptor base address pointer*/
+    volatile enet_bd_struct_t * rxBdCurPtr;    /*!< Current receive buffer descriptor pointer*/
+    volatile enet_bd_struct_t * rxBdDirtyPtr;  /*!< Receive dirty buffer descriptor*/
+    volatile enet_bd_struct_t * txBdBasePtr;   /*!< Transmit buffer descriptor base address pointer*/
+    volatile enet_bd_struct_t * txBdCurPtr;    /*!< Current transmit buffer descriptor pointer*/
+    volatile enet_bd_struct_t * txBdDirtyPtr;  /*!< Last cleaned transmit buffer descriptor pointer*/
+    bool  isTxBdFull;         /*!< Transmit buffer descriptor full*/
+    bool  isRxBdFull;         /*!< Receive buffer descriptor full*/
+    uint32_t rxBuffSizeAlign;      /*!< Receive buffer size alignment*/
+    uint32_t txBuffSizeAlign;    /*!< Transmit buffer size alignment */
+    uint8_t *extRxBuffQue; /*!< Extended Rx data buffer queue to update the data buff
+                                 in the receive buffer descriptor*/
+    uint8_t extRxBuffNum;        /*!< extended data buffer number */
+} enet_buff_descrip_context_t;
+
 #if FSL_FEATURE_ENET_SUPPORT_PTP
 /*! @brief Defines the PTP IOCTL macro.*/
 typedef enum _enet_ptp_ioctl
@@ -231,6 +347,7 @@ typedef struct ENETTxBdConfig
 typedef struct ENETMacConfig
 {
     uint16_t rxBufferSize;  /*!< Receive buffer size*/
+    uint16_t txBufferSize;  /*!< Receive buffer size*/
     uint16_t rxLargeBufferNumber; /*!< Receive large buffer number; Needed only when the BD size is smaller than the maximum frame length.*/
     uint16_t rxBdNumber;    /*!< Receive buffer descriptor number*/
     uint16_t txBdNumber;    /*!< Transmit buffer descriptor number*/
@@ -427,6 +544,7 @@ typedef struct ENETDevIf
     const struct ENETMacApi *macApiPtr;   /*!< MAC application interface structure*/
     void *phyApiPtr;             /*!< PHY application interface structure*/
     enet_mac_context_t *macContextPtr; /*!< MAC context pointer*/
+    enet_buff_descrip_context_t bdContext; /*!< Mac buffer descriptors context pointer*/
 #if ENET_ENABLE_DETAIL_STATS
     enet_stats_t stats;                /*!< Packets statistic*/
 #endif

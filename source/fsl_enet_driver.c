@@ -421,9 +421,13 @@ uint32_t enet_mac_init(enet_dev_if_t * enetIfPtr, enet_rxbd_config_t *rxbdCfg,
     /* Program this station's physical address*/
     enet_hal_set_mac_address(devNumber, enetIfPtr->macCfgPtr->macAddr);
 
-    /* Clear group and individual hash register*/
-    enet_hal_set_group_hashtable(devNumber, 0, kEnetSpecialAddressInit);
-    enet_hal_set_individual_hashtable(devNumber, 0, kEnetSpecialAddressInit);
+    /* Enable Multicast group*/
+    HW_ENET_GALR_WR(devNumber,0xFFFFFFFF);
+    HW_ENET_GAUR_WR(devNumber,0xFFFFFFFF);
+
+    /* Enable Unicast Group*/
+    HW_ENET_IALR_WR(devNumber,0xFFFFFFFF);
+    HW_ENET_IAUR_WR(devNumber,0xFFFFFFFF);
 
 	  /* Configure mac controller*/
     result = enet_mac_configure_controller(enetIfPtr);
