@@ -28,35 +28,6 @@
 
 
 
-
-//#define ENET_RX_BUFFER_ALIGNMENT      (16)
-//#define ENET_TX_BUFFER_ALIGNMENT      (16)
-//#define ENET_BD_ALIGNMENT             (16)
-//#define ENET_MII_CLOCK                (2500000L)
-//#define RX_BUF_ALIGNMENT              (16)
-//#define TX_BUF_ALIGNMENT              (8)
-//#define BOARD_DEBUG_ENET_INSTANCE     (0)
-//#define BOARD_DEBUG_ENET_INSTANCE_ADDR (ENET_BASE)
-//#define ENET_RXBD_NUM                 (16)
-//#define ENET_TXBD_NUM                 (8)
-//#define ENET_RXBuff_SIZE              (kEnetMaxFrameSize)
-//#define ENET_TXBuff_SIZE              (kEnetMaxFrameSize)
-//#define ENET_ETH_MAX_FLEN             (kEnetMaxFrameSize)
-//#define ENET_RX_LARGE_BUFFER_NUM      (0)
-
-/*#define ENET_RX_BUFFER_ALIGNMENT      (8)
-#define ENET_TX_BUFFER_ALIGNMENT      (8)
-#define ENET_BD_ALIGNMENT             (8)
-#define ENET_MII_CLOCK                (2500000L)
-#define RX_BUF_ALIGNMENT              (8)
-#define TX_BUF_ALIGNMENT              (8)
-#define BOARD_DEBUG_ENET_INSTANCE     (0)
-#define BOARD_DEBUG_ENET_INSTANCE_ADDR (ENET_BASE)
-#define ENET_RXBD_NUM                 (16)
-#define ENET_TXBD_NUM                 (2)
-#define ENET_RXBuff_SIZE              (128)
-#define ENET_TXBuff_SIZE              (kEnetMaxFrameSize)*/
-
 #ifdef __cplusplus
 extern "C" {
 #endif
