@@ -9,8 +9,8 @@
 #include "ns_types.h"
 #include "k64f_eth_nanostack_port.h"
 #include "fsl_enet_driver.h"
-#include "fsl_phy_driver.h"
 #include "fsl_enet_hal.h"
+#include "fsl_phy_driver.h"
 #include "mbed-drivers/mbed_interface.h"
 #include "fsl_interrupt_manager.h"
 #define HAVE_DEBUG 1
@@ -37,7 +37,7 @@ static int8_t arm_eth_phy_k64f_tx(uint8_t *data_ptr, uint16_t data_len, uint8_t 
 void (*driver_readiness_status_callback)(uint8_t, int8_t) = 0;
 void eth_enable_interrupts(void);
 void eth_disable_interrupts(void);
-static int8_t k64f_eth_initialize();
+static int8_t k64f_eth_initialize(void);
 static int8_t k64f_eth_send(uint8_t *data_ptr, uint16_t data_len);
 extern void k64f_init_eth_hardware(void);
 
@@ -118,8 +118,9 @@ static int8_t arm_eth_phy_k64f_tx(uint8_t *data_ptr, uint16_t data_len, uint8_t 
 
     int retval = -1;
 
-    if(data_len){
-        tr_debug("Nanostack wishes to transmit. Data_len=%i",data_len);
+
+    if(data_len >= ENET_HDR_LEN){
+        //tr_debug("Nanostack wishes to transmit. Data_len=%i",data_len);
         platform_enter_critical();
         retval = k64f_eth_send(data_ptr, data_len);
         platform_exit_critical();
@@ -327,18 +328,19 @@ static void k64f_eth_receive(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t 
 
     /*Allign data according to the receive buffer allinment setting*/
     uint8_t *aligned_ptr = (uint8_t*)ENET_ALIGN((uint32_t)rx_data_buf_ptr, RX_BUF_ALIGNMENT);
-    if (aligned_ptr[12] == 0x86 && aligned_ptr[13] == 0xDD) {
+    /*if (aligned_ptr[12] == 0x86 && aligned_ptr[13] == 0xDD) {
        tr_info("Data RX %u %s", data_length, trace_array(aligned_ptr, 24));
-    }
+    }*/
 
     /* When alligned, Hand it over to Nanostack*/
     retval = arm_net_phy_rx(PHY_LAYER_PAYLOAD, aligned_ptr, data_length, 0xff, 0, eth_interface_id);
-    if(retval>=0){
+    /*if(retval>=0){
         tr_info("Data Pushed to Nanostack.");
     }
     else{
         tr_err("Nanostack rejected the push (%d).", retval);
-    }
+    }*/
+    (void) retval;
 
     MEM_FREE(rx_data_buf_ptr);
 }
@@ -364,13 +366,13 @@ static void tx_queue_reclaim(Ethernet_BufferDesc_Ring_t *buf_desc_ring)
             buf_desc_ring->tx_data_buf_ptr[index] = NULL;
         }
         bdPtr[index].controlExtend2 &= ~TX_DESC_UPDATED_MASK;
-        tr_debug("Reclaimed BufferDescriptor[%i].", index);
+        //tr_debug("Reclaimed BufferDescriptor[%i].", index);
         index = (index + 1) % ENET_TX_RING_LEN;
     }
 
     buf_desc_ring->tx_buf_busy_index = index;
-    tr_debug("buf_desc_ring->tx_buf_busy_index %i.", buf_desc_ring->tx_buf_busy_index);
-    tr_debug("buf_desc_ring->tx_buf_free_index %i.", buf_desc_ring->tx_buf_free_index);
+    //tr_debug("buf_desc_ring->tx_buf_busy_index %i.", buf_desc_ring->tx_buf_busy_index);
+    //tr_debug("buf_desc_ring->tx_buf_free_index %i.", buf_desc_ring->tx_buf_free_index);
 }
 
 /* This function tells how many tx buffer descriptors are free at the moment */
@@ -448,16 +450,16 @@ static int8_t k64f_eth_send(uint8_t *data_ptr, uint16_t data_len)
 
     memcpy(aligned_ptr, data_ptr, data_len);
 
-    if (aligned_ptr[12] == 0x86 && aligned_ptr[13] == 0xDD) {
-        tr_debug("Data TX %u %s", data_len, trace_array(aligned_ptr, 24));
-    }
+    //if (aligned_ptr[12] == 0x86 && aligned_ptr[13] == 0xDD) {
+    //    tr_debug("Data TX %u %s", data_len, trace_array(aligned_ptr, 24));
+    //}
 
     k64f_update_txbds(buf_desc_ring, index, aligned_ptr, data_len, 1);
     buf_desc_ring->txb_aligned[index] = NULL;
 
     index = (index + 1) % ENET_TX_RING_LEN;
     buf_desc_ring->tx_buf_free_index = index;
-    tr_debug("Next TX buffer = %i", index);
+    //tr_debug("Next TX buffer = %i", index);
 
     enet_hal_active_txbd(BOARD_DEBUG_ENET_INSTANCE_ADDR);
 
@@ -471,16 +473,10 @@ static void k64f_eth_set_address(uint8_t *address_ptr)
     enet_mac_config_t*mac_config =
             &(ethernet_mac_config[BOARD_DEBUG_ENET_INSTANCE]);
 
-    /* When pointer to the MAC address is not given*/
-    if (address_ptr == NULL) {
-        /* set a semi unique MAC address. Not a preferred method */
-        mbed_mac_address((char *) mac_config->macAddr);
-    }
     /* When pointer to the MAC address is given. It could be 48-bit EUI generated
      * from Radio, like atmel RF or manually inserted. Preferred method.*/
-    else {
-        memcpy(mac_config->macAddr, (char *) address_ptr, kEnetMacAddrLen);
-    }
+    memcpy(mac_config->macAddr, address_ptr, kEnetMacAddrLen);
+    enet_hal_set_mac_address(device_id, mac_config->macAddr);
 }
 
 /* This function sets the MAC address and its type for the Ethernet interface*/

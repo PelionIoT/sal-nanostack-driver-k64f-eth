@@ -5,6 +5,7 @@
 #ifndef K64F_ETH_NANOSTACK_PORT_H_
 #define K64F_ETH_NANOSTACK_PORT_H_
 
+#define ENET_HDR_LEN                  (14)
 #define ENET_RX_RING_LEN              (8)
 #define ENET_TX_RING_LEN              (2)
 #define ENET_RX_LARGE_BUFFER_NUM      (0)

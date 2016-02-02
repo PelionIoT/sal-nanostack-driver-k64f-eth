@@ -421,13 +421,15 @@ uint32_t enet_mac_init(enet_dev_if_t * enetIfPtr, enet_rxbd_config_t *rxbdCfg,
     /* Program this station's physical address*/
     enet_hal_set_mac_address(devNumber, enetIfPtr->macCfgPtr->macAddr);
 
-    /* Enable Multicast group*/
+    /* Enable Multicast group. The entry is All F because we want to listen
+     * all multicast*/
     HW_ENET_GALR_WR(devNumber,0xFFFFFFFF);
     HW_ENET_GAUR_WR(devNumber,0xFFFFFFFF);
 
-    /* Enable Unicast Group*/
-    HW_ENET_IALR_WR(devNumber,0xFFFFFFFF);
-    HW_ENET_IAUR_WR(devNumber,0xFFFFFFFF);
+    /* Enable Unicast Group with 0 hash table entry. It means it
+     * will accept only its own MAC address as the destination address if
+     * something is received.*/
+    enet_hal_set_individual_hashtable(devNumber, 0, kEnetSpecialAddressInit);
 
 	  /* Configure mac controller*/
     result = enet_mac_configure_controller(enetIfPtr);
