@@ -135,9 +135,7 @@ static int8_t arm_eth_phy_k64f_tx(uint8_t *data_ptr, uint16_t data_len, uint8_t 
 
     if(data_len >= ENET_HDR_LEN){
         //tr_debug("Nanostack wishes to transmit. Data_len=%i",data_len);
-        platform_enter_critical();
         retval = k64f_eth_send(data_ptr, data_len);
-        platform_exit_critical();
     }
 
     (void)data_flow;
@@ -348,6 +346,7 @@ static void k64f_eth_receive(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t 
 
     /* When alligned, Hand it over to Nanostack*/
     retval = arm_net_phy_rx(PHY_LAYER_PAYLOAD, aligned_ptr, data_length, 0xff, 0, eth_interface_id);
+
     /*if(retval>=0){
         tr_info("Data Pushed to Nanostack.");
     }
@@ -682,6 +681,7 @@ void ENET_Receive_IRQHandler(void)
     enet_dev_if_t *ethernet_iface_ptr =
             &ethernet_iface[BOARD_DEBUG_ENET_INSTANCE];
 
+    platform_interrupts_disabled();
     if (enet_hal_get_interrupt_status(ethernet_iface_ptr->deviceNumber,
                                       kEnetRxFrameInterrupt)) {
         enet_mac_rx_isr(enetIfHandle);
@@ -691,6 +691,7 @@ void ENET_Receive_IRQHandler(void)
                                       kEnetTxFrameInterrupt)) {
         enet_mac_tx_isr(enetIfHandle);
     }
+    platform_interrupts_enabling();
 }
 
 
