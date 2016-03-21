@@ -518,10 +518,38 @@ static int8_t arm_eth_phy_k64f_address_write(phy_address_type_e address_type, ui
     return retval;
 }
 
+//void phy_get_link_status(enet_dev_if_t *enetIfPtr, uint8_t *status)
+//{
+//   uint32_t result = kStatus_PHY_Success;
+//   uint32_t data;
+//
+//   result = enetIfPtr->macApiPtr->enet_mii_read(enetIfPtr->deviceNumber,
+//       enetIfPtr->phyCfgPtr->phyAddr,kEnetPhyCR,&data);
+//   if ((result == kStatus_PHY_Success) && (!(data & kEnetPhyReset)))
+//   {
+//       data = 0;
+//       result = enetIfPtr->macApiPtr->enet_mii_read(enetIfPtr->deviceNumber,
+//           enetIfPtr->phyCfgPtr->phyAddr,kEnetPhySR, &data);
+//       if (result == kStatus_PHY_Success)
+//       {
+//           if (!(kEnetPhyLinkStatus & data))
+//           {
+//               *status = 0;
+//           }
+//           else
+//           {
+//               *status = 1;
+//           }
+//       }
+//   }
+//
+//}
+
 /* This function initializes the Ethernet Interface for frdm-k64f*/
 static int8_t k64f_eth_initialize(){
 
     int8_t retval = -1;
+    bool link_status = false;
     enet_dev_if_t *ethernet_iface_ptr;
     enet_mac_config_t *mac_config_ptr;
     enet_config_rx_accelerator_t rxAcceler;
@@ -605,10 +633,27 @@ static int8_t k64f_eth_initialize(){
               return -1;
             }
         }
+
+        /* First check, if the cable is connected or not.*/
+        tr_debug("Checking cable connection.");
+        phy_get_link_status(ethernet_iface_ptr, &link_status);
+        if(link_status==false){
+        tr_debug("link status = down");
+        }
+        if (link_status==false) {
+            tr_info("Please connect Ethernet Cable.");
+        }
+
+        do {
+            phy_get_link_status(ethernet_iface_ptr, &link_status);
+        } while (link_status==false);
+
         if (((enet_phy_api_t *)(ethernet_iface_ptr->phyApiPtr))->phy_init(ethernet_iface_ptr) != kStatus_PHY_Success){
             tr_debug("INIT_MAC. PHY was not initialized.");
             return -1;
         }
+
+
 
         ethernet_iface_ptr->isInitialized = true;
 
@@ -617,11 +662,11 @@ static int8_t k64f_eth_initialize(){
         phy_get_link_duplex(ethernet_iface_ptr, &phy_duplex);
         BW_ENET_RCR_RMII_10T(ethernet_iface_ptr->deviceNumber, phy_speed == kEnetSpeed10M ? kEnetCfgSpeed10M : kEnetCfgSpeed100M);
         if((phy_speed == kEnetSpeed10M ? kEnetCfgSpeed10M : kEnetCfgSpeed100M)==0){
-            tr_info("ETH Link Speed = 100M");
+            tr_debug("ETH Link Speed = 100M");
         }
         BW_ENET_TCR_FDEN(ethernet_iface_ptr->deviceNumber, phy_duplex == kEnetFullDuplex ? kEnetCfgFullDuplex : kEnetCfgHalfDuplex);
         if(phy_duplex == kEnetFullDuplex ? kEnetCfgFullDuplex : kEnetCfgHalfDuplex){
-            tr_info("ETH Duplex = FULL");
+            tr_debug("ETH Duplex = FULL");
         }
 
         /* Enable Ethernet module*/
