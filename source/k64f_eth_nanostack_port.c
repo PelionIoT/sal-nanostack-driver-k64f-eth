@@ -292,6 +292,7 @@ static uint8_t *Buf_to_Nanostack(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint
     enet_bd_struct_t *bdPtr = (enet_bd_struct_t*)buf_desc_ring->rx_buf_desc_start_addr;
     const uint16_t err_mask = kEnetRxBdTrunc | kEnetRxBdCrc | kEnetRxBdNoOctet | kEnetRxBdLengthViolation;
     uint8_t *rx_data_buf_ptr = NULL;
+    int8_t retcode=0;
 
     /* If the recieved packet is in error, discard it and empty the logical
      * descriptor*/
@@ -316,7 +317,11 @@ static uint8_t *Buf_to_Nanostack(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint
     /* Update index of free descriptors*/
     buf_desc_ring->rx_free_desc++;
     /* Allign the queue to buffer_descriptor again */
-    rx_queue_alligned_to_buf_desc(buf_desc_ring, idx);
+    retcode = rx_queue_alligned_to_buf_desc(buf_desc_ring, idx);
+    if(retcode==-1){
+        rx_queue(buf_desc_ring, rx_data_buf_ptr, idx);
+        rx_data_buf_ptr = NULL;
+    }
 
 
     return rx_data_buf_ptr;
@@ -545,7 +550,7 @@ static int8_t k64f_eth_initialize(){
     mac_config_ptr->txBdNumber = ENET_TX_RING_LEN;
     /* ! MAC address was alread set by the function k64f_eth_set_address ! */
     mac_config_ptr->rmiiCfgMode = kEnetCfgRmii;
-    mac_config_ptr->speed = kEnetSpeed100M;
+    mac_config_ptr->speed = kEnetCfgSpeed100M;
     mac_config_ptr->duplex = kEnetCfgFullDuplex;
     mac_config_ptr->macCtlConfigure = kEnetRxCrcFwdEnable | kEnetRxFlowControlEnable,
     mac_config_ptr->isTxAccelEnabled = true;
@@ -611,7 +616,13 @@ static int8_t k64f_eth_initialize(){
         phy_get_link_speed(ethernet_iface_ptr, &phy_speed);
         phy_get_link_duplex(ethernet_iface_ptr, &phy_duplex);
         BW_ENET_RCR_RMII_10T(ethernet_iface_ptr->deviceNumber, phy_speed == kEnetSpeed10M ? kEnetCfgSpeed10M : kEnetCfgSpeed100M);
+        if((phy_speed == kEnetSpeed10M ? kEnetCfgSpeed10M : kEnetCfgSpeed100M)==0){
+            tr_info("ETH Link Speed = 100M");
+        }
         BW_ENET_TCR_FDEN(ethernet_iface_ptr->deviceNumber, phy_duplex == kEnetFullDuplex ? kEnetCfgFullDuplex : kEnetCfgHalfDuplex);
+        if(phy_duplex == kEnetFullDuplex ? kEnetCfgFullDuplex : kEnetCfgHalfDuplex){
+            tr_info("ETH Duplex = FULL");
+        }
 
         /* Enable Ethernet module*/
         enet_hal_config_ethernet(BOARD_DEBUG_ENET_INSTANCE_ADDR, true, true);
