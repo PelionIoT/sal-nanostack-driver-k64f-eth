@@ -550,7 +550,7 @@ static int8_t k64f_eth_initialize(){
     mac_config_ptr->txBdNumber = ENET_TX_RING_LEN;
     /* ! MAC address was alread set by the function k64f_eth_set_address ! */
     mac_config_ptr->rmiiCfgMode = kEnetCfgRmii;
-    mac_config_ptr->speed = kEnetSpeed100M;
+    mac_config_ptr->speed = kEnetCfgSpeed100M;
     mac_config_ptr->duplex = kEnetCfgFullDuplex;
     mac_config_ptr->macCtlConfigure = kEnetRxCrcFwdEnable | kEnetRxFlowControlEnable,
     mac_config_ptr->isTxAccelEnabled = true;
@@ -616,7 +616,13 @@ static int8_t k64f_eth_initialize(){
         phy_get_link_speed(ethernet_iface_ptr, &phy_speed);
         phy_get_link_duplex(ethernet_iface_ptr, &phy_duplex);
         BW_ENET_RCR_RMII_10T(ethernet_iface_ptr->deviceNumber, phy_speed == kEnetSpeed10M ? kEnetCfgSpeed10M : kEnetCfgSpeed100M);
+        if((phy_speed == kEnetSpeed10M ? kEnetCfgSpeed10M : kEnetCfgSpeed100M)==0){
+            tr_info("ETH Link Speed = 100M");
+        }
         BW_ENET_TCR_FDEN(ethernet_iface_ptr->deviceNumber, phy_duplex == kEnetFullDuplex ? kEnetCfgFullDuplex : kEnetCfgHalfDuplex);
+        if(phy_duplex == kEnetFullDuplex ? kEnetCfgFullDuplex : kEnetCfgHalfDuplex){
+            tr_info("ETH Duplex = FULL");
+        }
 
         /* Enable Ethernet module*/
         enet_hal_config_ethernet(BOARD_DEBUG_ENET_INSTANCE_ADDR, true, true);
