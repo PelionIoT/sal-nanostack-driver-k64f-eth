@@ -132,9 +132,7 @@ static int8_t arm_eth_phy_k64f_tx(uint8_t *data_ptr, uint16_t data_len, uint8_t 
 
     int retval = -1;
 
-
     if(data_len >= ENET_HDR_LEN){
-        //tr_debug("Nanostack wishes to transmit. Data_len=%i",data_len);
         retval = k64f_eth_send(data_ptr, data_len);
     }
 
@@ -318,6 +316,9 @@ static uint8_t *Buf_to_Nanostack(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint
     buf_desc_ring->rx_free_desc++;
     /* Allign the queue to buffer_descriptor again */
     retcode = rx_queue_alligned_to_buf_desc(buf_desc_ring, idx);
+
+    /*if memory allocation would fail, following code makes sure to re-queue the
+     * descriptor */
     if(retcode==-1){
         rx_queue(buf_desc_ring, rx_data_buf_ptr, idx);
         rx_data_buf_ptr = NULL;
@@ -345,19 +346,10 @@ static void k64f_eth_receive(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t 
 
     /*Allign data according to the receive buffer allinment setting*/
     uint8_t *aligned_ptr = (uint8_t*)ENET_ALIGN((uint32_t)rx_data_buf_ptr, RX_BUF_ALIGNMENT);
-    /*if (aligned_ptr[12] == 0x86 && aligned_ptr[13] == 0xDD) {
-       tr_info("Data RX %u %s", data_length, trace_array(aligned_ptr, 24));
-    }*/
 
     /* When alligned, Hand it over to Nanostack*/
     retval = arm_net_phy_rx(PHY_LAYER_PAYLOAD, aligned_ptr, data_length, 0xff, 0, eth_interface_id);
 
-    /*if(retval>=0){
-        tr_info("Data Pushed to Nanostack.");
-    }
-    else{
-        tr_err("Nanostack rejected the push (%d).", retval);
-    }*/
     (void) retval;
 
     MEM_FREE(rx_data_buf_ptr);
@@ -372,7 +364,6 @@ static void tx_queue_reclaim(Ethernet_BufferDesc_Ring_t *buf_desc_ring)
 
     /* Traverse all descriptors, looking for the ones modified by the uDMA */
     index = buf_desc_ring->tx_buf_busy_index;
-  //  tr_debug("Going to reclaim TX queue as per interrupt. Used BDs = %i", index);
 
     while (index != buf_desc_ring->tx_buf_free_index && !(bdPtr[index].control & kEnetTxBdReady)) {
         if (buf_desc_ring->txb_aligned[index]) {
@@ -389,8 +380,6 @@ static void tx_queue_reclaim(Ethernet_BufferDesc_Ring_t *buf_desc_ring)
     }
 
     buf_desc_ring->tx_buf_busy_index = index;
-    //tr_debug("buf_desc_ring->tx_buf_busy_index %i.", buf_desc_ring->tx_buf_busy_index);
-    //tr_debug("buf_desc_ring->tx_buf_free_index %i.", buf_desc_ring->tx_buf_free_index);
 }
 
 /* This function tells how many tx buffer descriptors are free at the moment */
@@ -518,33 +507,6 @@ static int8_t arm_eth_phy_k64f_address_write(phy_address_type_e address_type, ui
     return retval;
 }
 
-//void phy_get_link_status(enet_dev_if_t *enetIfPtr, uint8_t *status)
-//{
-//   uint32_t result = kStatus_PHY_Success;
-//   uint32_t data;
-//
-//   result = enetIfPtr->macApiPtr->enet_mii_read(enetIfPtr->deviceNumber,
-//       enetIfPtr->phyCfgPtr->phyAddr,kEnetPhyCR,&data);
-//   if ((result == kStatus_PHY_Success) && (!(data & kEnetPhyReset)))
-//   {
-//       data = 0;
-//       result = enetIfPtr->macApiPtr->enet_mii_read(enetIfPtr->deviceNumber,
-//           enetIfPtr->phyCfgPtr->phyAddr,kEnetPhySR, &data);
-//       if (result == kStatus_PHY_Success)
-//       {
-//           if (!(kEnetPhyLinkStatus & data))
-//           {
-//               *status = 0;
-//           }
-//           else
-//           {
-//               *status = 1;
-//           }
-//       }
-//   }
-//
-//}
-
 /* This function initializes the Ethernet Interface for frdm-k64f*/
 static int8_t k64f_eth_initialize(){
 
@@ -637,23 +599,22 @@ static int8_t k64f_eth_initialize(){
         /* First check, if the cable is connected or not.*/
         tr_debug("Checking cable connection.");
         phy_get_link_status(ethernet_iface_ptr, &link_status);
-        if(link_status==false){
-        tr_debug("link status = down");
+        if (link_status == false) {
+            tr_debug("link status = down");
         }
-        if (link_status==false) {
+        if (link_status == false) {
             tr_info("Please connect Ethernet Cable.");
         }
 
         do {
             phy_get_link_status(ethernet_iface_ptr, &link_status);
-        } while (link_status==false);
+        } while (link_status == false);
 
-        if (((enet_phy_api_t *)(ethernet_iface_ptr->phyApiPtr))->phy_init(ethernet_iface_ptr) != kStatus_PHY_Success){
+        if (((enet_phy_api_t *) (ethernet_iface_ptr->phyApiPtr))->phy_init(
+                ethernet_iface_ptr) != kStatus_PHY_Success) {
             tr_debug("INIT_MAC. PHY was not initialized.");
             return -1;
         }
-
-
 
         ethernet_iface_ptr->isInitialized = true;
 
