@@ -292,6 +292,7 @@ static uint8_t *Buf_to_Nanostack(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint
     enet_bd_struct_t *bdPtr = (enet_bd_struct_t*)buf_desc_ring->rx_buf_desc_start_addr;
     const uint16_t err_mask = kEnetRxBdTrunc | kEnetRxBdCrc | kEnetRxBdNoOctet | kEnetRxBdLengthViolation;
     uint8_t *rx_data_buf_ptr = NULL;
+    int8_t retcode=0;
 
     /* If the recieved packet is in error, discard it and empty the logical
      * descriptor*/
@@ -316,7 +317,11 @@ static uint8_t *Buf_to_Nanostack(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint
     /* Update index of free descriptors*/
     buf_desc_ring->rx_free_desc++;
     /* Allign the queue to buffer_descriptor again */
-    rx_queue_alligned_to_buf_desc(buf_desc_ring, idx);
+    retcode = rx_queue_alligned_to_buf_desc(buf_desc_ring, idx);
+    if(retcode==-1){
+        rx_queue(buf_desc_ring, rx_data_buf_ptr, idx);
+        rx_data_buf_ptr = NULL;
+    }
 
 
     return rx_data_buf_ptr;
