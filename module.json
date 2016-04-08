@@ -1,6 +1,6 @@
 {
   "name": "sal-nanostack-driver-k64f-eth",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Nanostack abstraction layer for k64f ethernet",
   "keywords": [
     "mbed",
