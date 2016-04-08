@@ -102,7 +102,7 @@ uint32_t enet_mii_read(uint32_t instance, uint32_t phyAddr, uint32_t phyReg, uin
         {
             break;
         }
-        wait_ms(1);
+        wait_ms(0.1);
     }
 
     /* Check for timeout*/
