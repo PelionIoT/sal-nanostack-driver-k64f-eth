@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 extern void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*app_ipv6_init_cb)(uint8_t, int8_t));
+extern int8_t k64f_eth_phy_up();
 
 #ifdef __cplusplus
 }

@@ -48,6 +48,7 @@ static int8_t arm_eth_phy_k64f_address_write(phy_address_type_e address_type, ui
 static void k64f_eth_set_address(uint8_t *address_ptr);
 static int8_t arm_eth_phy_k64f_interface_state_control(phy_interface_state_e state, uint8_t x);
 static int8_t arm_eth_phy_k64f_tx(uint8_t *data_ptr, uint16_t data_len, uint8_t tx_handle,data_protocol_e data_flow);
+void enet_phy_link_setup (enet_dev_if_t *ethernet_iface_ptr);
 void (*driver_readiness_status_callback)(uint8_t, int8_t) = 0;
 void eth_enable_interrupts(void);
 void eth_disable_interrupts(void);
@@ -117,11 +118,9 @@ void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*driver_status_cb)(uint
         int8_t ret = k64f_eth_initialize();
         if (ret==-1) {
             tr_error("Failed to Initialize Ethernet Driver.");
-            driver_readiness_status_callback(0, eth_interface_id);
         } else {
             tr_info("Ethernet Driver Initialized.");
             eth_driver_enabled = true;
-            driver_readiness_status_callback(1, eth_interface_id);
         }
     }
 }
@@ -197,7 +196,6 @@ static void rx_queue(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t *data_bu
     }
     /* Activate current buffer descriptor */
     enet_hal_active_rxbd(BOARD_DEBUG_ENET_INSTANCE_ADDR);
-   // tr_debug("Free RX buffer descriptors no. is = %i", (uint8_t) buf_desc_ring->rx_free_desc);
 }
 
 /* Allocates an alligned bunch of memory for receive queue usage.*/
@@ -215,7 +213,6 @@ static int8_t rx_queue_alligned_to_buf_desc(Ethernet_BufferDesc_Ring_t *buf_desc
             tr_error("Could not allocate memory. rx_queue_alligned_to_buf_desc.");
             return -1;
         }
-        //buf_ptr = (uint8_t*)ENET_ALIGN((uint32_t)buf_ptr, RX_BUF_ALIGNMENT);
         rx_queue(buf_desc_ring, buf_ptr, index);
     }
 
@@ -507,19 +504,49 @@ static int8_t arm_eth_phy_k64f_address_write(phy_address_type_e address_type, ui
     return retval;
 }
 
+void enet_phy_link_setup (enet_dev_if_t *ethernet_iface_ptr){
+
+    /* Get link information from PHY */
+      enet_phy_speed_t phy_speed;
+      enet_phy_duplex_t phy_duplex;
+      phy_get_link_speed(ethernet_iface_ptr, &phy_speed);
+      phy_get_link_duplex(ethernet_iface_ptr, &phy_duplex);
+      BW_ENET_RCR_RMII_10T(ethernet_iface_ptr->deviceNumber, phy_speed == kEnetSpeed10M ? kEnetCfgSpeed10M : kEnetCfgSpeed100M);
+      if((phy_speed == kEnetSpeed10M ? kEnetCfgSpeed10M : kEnetCfgSpeed100M)==0){
+          tr_debug("ETH Link Speed = 100M");
+      }
+      BW_ENET_TCR_FDEN(ethernet_iface_ptr->deviceNumber, phy_duplex == kEnetFullDuplex ? kEnetCfgFullDuplex : kEnetCfgHalfDuplex);
+      if(phy_duplex == kEnetFullDuplex ? kEnetCfgFullDuplex : kEnetCfgHalfDuplex){
+          tr_debug("ETH Duplex = FULL");
+      }
+
+
+      /* Enable Ethernet module*/
+      enet_hal_config_ethernet(BOARD_DEBUG_ENET_INSTANCE_ADDR, true, true);
+
+      /* Active Receive buffer descriptor must be done after module enable*/
+      enet_hal_active_rxbd(ethernet_iface_ptr->deviceNumber);
+
+      tr_info("Ethernet Interface Initialized. Succes");
+
+      /* All went well, now enable interrupts*/
+      eth_enable_interrupts();
+      driver_readiness_status_callback(1, eth_interface_id);
+
+}
+
 /* This function initializes the Ethernet Interface for frdm-k64f*/
 static int8_t k64f_eth_initialize(){
 
     int8_t retval = -1;
-    bool link_status = false;
+
     enet_dev_if_t *ethernet_iface_ptr;
     enet_mac_config_t *mac_config_ptr;
     enet_config_rx_accelerator_t rxAcceler;
     enet_config_tx_accelerator_t txAcceler;
     enet_rxbd_config_t rxbdCfg;
     enet_txbd_config_t txbdCfg;
-    enet_phy_speed_t phy_speed;
-    enet_phy_duplex_t phy_duplex;
+
 
     Ethernet_BufferDesc_Ring_t *buf_desc_ring = &buffer_descriptor_ring[BOARD_DEBUG_ENET_INSTANCE];
 
@@ -587,63 +614,64 @@ static int8_t k64f_eth_initialize(){
     }
 
     /* Initialize MAC layer*/
-    if(enet_mac_init(ethernet_iface_ptr, &rxbdCfg, &txbdCfg)==kStatus_ENET_Success){
+    if (enet_mac_init(ethernet_iface_ptr, &rxbdCfg, &txbdCfg)
+            == kStatus_ENET_Success) {
         /* Initialize PHY layer*/
         if (ethernet_iface_ptr->macCfgPtr->isPhyAutoDiscover) {
-            if (((enet_phy_api_t *)(ethernet_iface_ptr->phyApiPtr))->phy_auto_discover(ethernet_iface_ptr) != kStatus_PHY_Success){
-              tr_debug("INIT_MAC. Auto discover fail.");
-              return -1;
+            if (((enet_phy_api_t *) (ethernet_iface_ptr->phyApiPtr))->phy_auto_discover(
+                    ethernet_iface_ptr) != kStatus_PHY_Success) {
+                tr_debug("INIT_MAC. Auto discover fail.");
+                return -1;
             }
         }
-
-        /* First check, if the cable is connected or not.*/
-        tr_debug("Checking cable connection.");
-        phy_get_link_status(ethernet_iface_ptr, &link_status);
-        if (link_status == false) {
-            tr_debug("link status = down");
-        }
-        if (link_status == false) {
-            tr_info("Please connect Ethernet Cable.");
-        }
-
-        do {
-            phy_get_link_status(ethernet_iface_ptr, &link_status);
-        } while (link_status == false);
-
         if (((enet_phy_api_t *) (ethernet_iface_ptr->phyApiPtr))->phy_init(
                 ethernet_iface_ptr) != kStatus_PHY_Success) {
             tr_debug("INIT_MAC. PHY was not initialized.");
+            driver_readiness_status_callback(0, eth_interface_id);
+            ethernet_iface_ptr->isInitialized = false;
             return -1;
         }
 
+        enet_phy_link_setup(ethernet_iface_ptr);
+
         ethernet_iface_ptr->isInitialized = true;
-
-        /* Get link information from PHY */
-        phy_get_link_speed(ethernet_iface_ptr, &phy_speed);
-        phy_get_link_duplex(ethernet_iface_ptr, &phy_duplex);
-        BW_ENET_RCR_RMII_10T(ethernet_iface_ptr->deviceNumber, phy_speed == kEnetSpeed10M ? kEnetCfgSpeed10M : kEnetCfgSpeed100M);
-        if((phy_speed == kEnetSpeed10M ? kEnetCfgSpeed10M : kEnetCfgSpeed100M)==0){
-            tr_debug("ETH Link Speed = 100M");
-        }
-        BW_ENET_TCR_FDEN(ethernet_iface_ptr->deviceNumber, phy_duplex == kEnetFullDuplex ? kEnetCfgFullDuplex : kEnetCfgHalfDuplex);
-        if(phy_duplex == kEnetFullDuplex ? kEnetCfgFullDuplex : kEnetCfgHalfDuplex){
-            tr_debug("ETH Duplex = FULL");
-        }
-
-        /* Enable Ethernet module*/
-        enet_hal_config_ethernet(BOARD_DEBUG_ENET_INSTANCE_ADDR, true, true);
-
-        /* Active Receive buffer descriptor must be done after module enable*/
-        enet_hal_active_rxbd(ethernet_iface_ptr->deviceNumber);
-
-        tr_info("Ethernet Interface Initialized. Succes");
-
-        /* All went well, now enable interrupts*/
-        eth_enable_interrupts();
         return 0;
+
     }
 
     return -1;
+}
+
+int8_t k64f_eth_phy_up() {
+
+    bool link_status = false;
+    enet_dev_if_t *ethernet_iface_ptr =
+            &ethernet_iface[BOARD_DEBUG_ENET_INSTANCE];
+
+    /* First check, if the cable is connected or not.*/
+    phy_get_link_status(ethernet_iface_ptr, &link_status);
+    if (!link_status) {
+        driver_readiness_status_callback(0, eth_interface_id);
+        if (ethernet_iface_ptr->isInitialized) {
+            ethernet_iface_ptr->isInitialized = false;
+            tr_debug("Ethernet phy link status = down");
+            tr_info("Ethernet Cable is not connected.");
+            driver_readiness_status_callback(0, eth_interface_id);
+        }
+        return -1;
+    }
+
+    else {
+        if (!ethernet_iface_ptr->isInitialized) {
+            ethernet_iface_ptr->isInitialized = true;
+            tr_debug("Ethernet phy link status = up");
+            tr_info("Ethernet Cable plugged.");
+            enet_phy_link_setup(ethernet_iface_ptr);
+        }
+    }
+
+    return 0;
+
 }
 
 /* Interrupt handling Section*/
