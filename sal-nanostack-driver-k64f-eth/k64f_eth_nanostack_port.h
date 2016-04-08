@@ -34,6 +34,13 @@ extern "C" {
 #endif
 
 extern void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*app_ipv6_init_cb)(uint8_t, int8_t));
+extern void k64f_eth_phy_link_poll(void);
+
+typedef enum {
+    LINK_STATUS_DOWN=0,
+    LINK_STATUS_UP
+} Eth_PHY_Link_Status;
+
 
 #ifdef __cplusplus
 }
