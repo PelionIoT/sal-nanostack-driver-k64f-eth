@@ -1,13 +1,13 @@
 /*
  * Copyright (c) 2016, ARM Limited, All Rights Reserved
  * SPDX-License-Identifier: Apache-2.0
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
  * not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -94,8 +94,8 @@ static Ethernet_BufferDesc_Ring_t buffer_descriptor_ring[HW_ENET_INSTANCE_COUNT]
 
 /* This function registers the ethernet driver to the Nanostack */
 /* After registration to the stack, it initializez the driver itself*/
-void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*driver_status_cb)(uint8_t, int8_t)){
-
+void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*driver_status_cb)(uint8_t, int8_t))
+{
     if (eth_interface_id < 0) {
 
         eth_device_driver.PHY_MAC = mac_ptr;
@@ -107,6 +107,8 @@ void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*driver_status_cb)(uint
         eth_device_driver.phy_tail_length = 0;
         eth_device_driver.state_control = &arm_eth_phy_k64f_interface_state_control;
         eth_device_driver.tx = &arm_eth_phy_k64f_tx;
+        eth_device_driver.phy_rx_cb = NULL;
+        eth_device_driver.phy_tx_done_cb = NULL;
         eth_interface_id = arm_net_phy_register(&eth_device_driver);
         driver_readiness_status_callback = driver_status_cb;
 
@@ -125,8 +127,8 @@ void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*driver_status_cb)(uint
 
 /* This function is called by Nanostack in order to spit out packets through
  * Ethernet Interface */
-static int8_t arm_eth_phy_k64f_tx(uint8_t *data_ptr, uint16_t data_len, uint8_t tx_handle,data_protocol_e data_flow){
-
+static int8_t arm_eth_phy_k64f_tx(uint8_t *data_ptr, uint16_t data_len, uint8_t tx_handle,data_protocol_e data_flow)
+{
     int retval = -1;
 
     if(data_len >= ENET_HDR_LEN){
@@ -136,13 +138,12 @@ static int8_t arm_eth_phy_k64f_tx(uint8_t *data_ptr, uint16_t data_len, uint8_t 
     (void)data_flow;
     (void)tx_handle;
 
-
     return retval;
 }
 
 /* TODO State Control Handling.*/
-static int8_t arm_eth_phy_k64f_interface_state_control(phy_interface_state_e state, uint8_t not_required){
-
+static int8_t arm_eth_phy_k64f_interface_state_control(phy_interface_state_e state, uint8_t not_required)
+{
     switch(state){
         case PHY_INTERFACE_DOWN:
             break;
@@ -162,13 +163,12 @@ static int8_t arm_eth_phy_k64f_interface_state_control(phy_interface_state_e sta
     (void)not_required;
 
     return 0;
-
 }
 
 /* Initializes the Receive queue for Receive buffer descriptors and also re-queues
  * any used buffers */
-static void rx_queue(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t *data_buf_ptr, int8_t index){
-
+static void rx_queue(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t *data_buf_ptr, int8_t index)
+{
     uint8_t *aligned_ptr = (uint8_t*)ENET_ALIGN((uint32_t)data_buf_ptr, RX_BUF_ALIGNMENT);
     enet_bd_struct_t *start = (enet_bd_struct_t *)buf_desc_ring->rx_buf_desc_start_addr;
     uint8_t idx;
@@ -197,9 +197,8 @@ static void rx_queue(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t *data_bu
 }
 
 /* Allocates an alligned bunch of memory for receive queue usage.*/
-static int8_t rx_queue_alligned_to_buf_desc(Ethernet_BufferDesc_Ring_t *buf_desc_ring, int8_t index){
-
-
+static int8_t rx_queue_alligned_to_buf_desc(Ethernet_BufferDesc_Ring_t *buf_desc_ring, int8_t index)
+{
     enet_dev_if_t *ethernet_iface_ptr = (enet_dev_if_t *)&ethernet_iface[BOARD_DEBUG_ENET_INSTANCE];
 
 
@@ -218,8 +217,8 @@ static int8_t rx_queue_alligned_to_buf_desc(Ethernet_BufferDesc_Ring_t *buf_desc
 }
 
 /*Setup for Reveive Buffer Desciptors*/
-static int8_t k64f_eth_rx_buf_desc_setup(Ethernet_BufferDesc_Ring_t *buf_desc_ring, enet_rxbd_config_t *rxbdCfg){
-
+static int8_t k64f_eth_rx_buf_desc_setup(Ethernet_BufferDesc_Ring_t *buf_desc_ring, enet_rxbd_config_t *rxbdCfg)
+{
     enet_dev_if_t *ethernet_iface_ptr = (enet_dev_if_t *)&ethernet_iface[BOARD_DEBUG_ENET_INSTANCE];
 
     uint8_t *rxBdPtr;
@@ -251,8 +250,8 @@ static int8_t k64f_eth_rx_buf_desc_setup(Ethernet_BufferDesc_Ring_t *buf_desc_ri
 }
 
 /*Setup for Transmit Buffer Desciptors*/
-static int8_t k64f_eth_tx_buf_desc_setup(Ethernet_BufferDesc_Ring_t *buf_desc_ring, enet_txbd_config_t *txbdCfg){
-
+static int8_t k64f_eth_tx_buf_desc_setup(Ethernet_BufferDesc_Ring_t *buf_desc_ring, enet_txbd_config_t *txbdCfg)
+{
     uint8_t *txBdPtr;
     enet_dev_if_t *ethernet_iface_ptr = (enet_dev_if_t *)&ethernet_iface[BOARD_DEBUG_ENET_INSTANCE];
 
@@ -280,8 +279,8 @@ static int8_t k64f_eth_tx_buf_desc_setup(Ethernet_BufferDesc_Ring_t *buf_desc_ri
 }
 
 /* Sets up the receive buffer ready to be collected by Nanostack */
-static uint8_t *Buf_to_Nanostack(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t idx, uint16_t *data_length){
-
+static uint8_t *Buf_to_Nanostack(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t idx, uint16_t *data_length)
+{
     enet_bd_struct_t *bdPtr = (enet_bd_struct_t*)buf_desc_ring->rx_buf_desc_start_addr;
     const uint16_t err_mask = kEnetRxBdTrunc | kEnetRxBdCrc | kEnetRxBdNoOctet | kEnetRxBdLengthViolation;
     uint8_t *rx_data_buf_ptr = NULL;
@@ -325,8 +324,8 @@ static uint8_t *Buf_to_Nanostack(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint
 
 /* This function is called whenever there is data at Ethernet. Prepares and pushes
  * the buffer to the Nanostack */
-static void k64f_eth_receive(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t idx){
-
+static void k64f_eth_receive(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t idx)
+{
     uint8_t *rx_data_buf_ptr = 0;
     int8_t retval = -1;
     uint16_t data_length=0;
@@ -343,7 +342,9 @@ static void k64f_eth_receive(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t 
     uint8_t *aligned_ptr = (uint8_t*)ENET_ALIGN((uint32_t)rx_data_buf_ptr, RX_BUF_ALIGNMENT);
 
     /* When alligned, Hand it over to Nanostack*/
-    retval = arm_net_phy_rx(PHY_LAYER_PAYLOAD, aligned_ptr, data_length, 0xff, 0, eth_interface_id);
+    if( eth_device_driver.phy_rx_cb ){
+        retval = eth_device_driver.phy_rx_cb(aligned_ptr, data_length, 0xff, 0, eth_interface_id);
+    }
 
     (void) retval;
 
@@ -415,7 +416,6 @@ void k64f_update_txbds(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t idx, u
  * Nanostack. As evident from name, this sends out the transmit packets */
 static int8_t k64f_eth_send(uint8_t *data_ptr, uint16_t data_len)
 {
-
     uint8_t index = 0;
     uint8_t descriptor_num = 0;
 
@@ -483,8 +483,8 @@ static void k64f_eth_set_address(uint8_t *address_ptr)
 /* This function sets the MAC address and its type for the Ethernet interface*/
 /* Only type supported is 48 bits. If address_ptr is NULL, we will try to set the
  * address using mbed-drivers. */
-static int8_t arm_eth_phy_k64f_address_write(phy_address_type_e address_type, uint8_t *address_ptr){
-
+static int8_t arm_eth_phy_k64f_address_write(phy_address_type_e address_type, uint8_t *address_ptr)
+{
     int8_t retval = 0;
 
     switch(address_type){
@@ -501,8 +501,8 @@ static int8_t arm_eth_phy_k64f_address_write(phy_address_type_e address_type, ui
     return retval;
 }
 
-void enet_phy_link_setup (enet_dev_if_t *ethernet_iface_ptr){
-
+void enet_phy_link_setup (enet_dev_if_t *ethernet_iface_ptr)
+{
     /* Get link information from PHY */
       enet_phy_speed_t phy_speed;
       enet_phy_duplex_t phy_duplex;
@@ -529,12 +529,11 @@ void enet_phy_link_setup (enet_dev_if_t *ethernet_iface_ptr){
       /* All went well, now enable interrupts*/
       eth_enable_interrupts();
       driver_readiness_status_callback(1, eth_interface_id);
-
 }
 
 /* This function initializes the Ethernet Interface for frdm-k64f*/
-static int8_t k64f_eth_initialize(){
-
+static int8_t k64f_eth_initialize()
+{
     int8_t retval = -1;
 
     enet_dev_if_t *ethernet_iface_ptr;
@@ -640,8 +639,8 @@ static int8_t k64f_eth_initialize(){
     return -1;
 }
 
-void k64f_eth_phy_link_poll() {
-
+void k64f_eth_phy_link_poll()
+{
     bool link_status = false;
     enet_dev_if_t *ethernet_iface_ptr =
             &ethernet_iface[BOARD_DEBUG_ENET_INSTANCE];
@@ -669,21 +668,23 @@ void k64f_eth_phy_link_poll() {
 /* Interrupt handling Section*/
 
 /* Enables Ethernet interrupts */
-void eth_enable_interrupts(void) {
+void eth_enable_interrupts(void)
+{
     enet_hal_config_interrupt(BOARD_DEBUG_ENET_INSTANCE_ADDR, (kEnetTxFrameInterrupt | kEnetRxFrameInterrupt), true);
     INT_SYS_EnableIRQ(enet_irq_ids[BOARD_DEBUG_ENET_INSTANCE][enetIntMap[kEnetRxfInt]]);
     INT_SYS_EnableIRQ(enet_irq_ids[BOARD_DEBUG_ENET_INSTANCE][enetIntMap[kEnetTxfInt]]);
 }
 
 /* Disables Ethernet interrupts */
-void eth_disable_interrupts(void) {
+void eth_disable_interrupts(void)
+{
     INT_SYS_DisableIRQ(enet_irq_ids[BOARD_DEBUG_ENET_INSTANCE][enetIntMap[kEnetRxfInt]]);
     INT_SYS_DisableIRQ(enet_irq_ids[BOARD_DEBUG_ENET_INSTANCE][enetIntMap[kEnetTxfInt]]);
 }
 
 /* Interrupt Service Routine for RX IRQ*/
-void enet_mac_rx_isr(void *enetIfPtr) {
-
+void enet_mac_rx_isr(void *enetIfPtr)
+{
     Ethernet_BufferDesc_Ring_t *buf_desc_ring = &buffer_descriptor_ring[BOARD_DEBUG_ENET_INSTANCE];
     volatile enet_bd_struct_t *bdPtr = (enet_bd_struct_t*)buf_desc_ring->rx_buf_desc_start_addr;
     static uint8_t idx = 0;
@@ -698,8 +699,8 @@ void enet_mac_rx_isr(void *enetIfPtr) {
 }
 
 /* Interrupt Service Routine for TX IRQ*/
-void enet_mac_tx_isr(void *enetIfPtr) {
-
+void enet_mac_tx_isr(void *enetIfPtr)
+{
     Ethernet_BufferDesc_Ring_t *buf_desc_ring = &buffer_descriptor_ring[BOARD_DEBUG_ENET_INSTANCE];
 
     /*Clear interrupt*/
@@ -708,7 +709,8 @@ void enet_mac_tx_isr(void *enetIfPtr) {
 }
 
 /* Transmit IRQ Handler*/
-void ENET_Transmit_IRQHandler(void) {
+void ENET_Transmit_IRQHandler(void)
+{
     NVIC_SetPendingIRQ(ENET_Receive_IRQn);
 }
 
