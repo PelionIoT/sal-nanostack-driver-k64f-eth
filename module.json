@@ -28,7 +28,7 @@
     "sal-nanostack-driver-k64f-eth"
   ],
   "dependencies": {
-    "sal-stack-nanostack": "^4.0.0"
+    "sal-stack-nanostack": "^5.0.0"
   },
   "targetDependencies": {}
 }
