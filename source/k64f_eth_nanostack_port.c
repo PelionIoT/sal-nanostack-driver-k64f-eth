@@ -432,12 +432,9 @@ static int8_t k64f_eth_send(uint8_t *data_ptr, uint16_t data_len)
     }
 
     /* Check if there are any buffer descriptors free */
-   descriptor_num = k64f_tx_descriptors_ready(buf_desc_ring);
-
-    if (descriptor_num < 1) {
-        tr_error("TX buf descriptors full. Can't queue packet.");
-        return -1;
-    }
+   do {
+       descriptor_num = k64f_tx_descriptors_ready(buf_desc_ring);
+   } while (descriptor_num<1);
 
     uint8_t *buf_ptr = MEM_ALLOC(data_len + TX_BUF_ALIGNMENT);
     if (!buf_ptr) {
