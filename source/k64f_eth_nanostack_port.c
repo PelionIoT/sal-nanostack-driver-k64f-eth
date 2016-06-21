@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, ARM Limited, All Rights Reserved
+ * Copyright (c) 2014-2016, ARM Limited, All Rights Reserved
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -17,83 +17,103 @@
 
 
 #include <string.h>
-#include <stdbool.h>
-#include "platform/arm_hal_phy.h"
-#include "platform/arm_hal_interrupt.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include "arm_hal_phy.h"
+#include "arm_hal_interrupt.h"
 #include "ns_types.h"
 #include "k64f_eth_nanostack_port.h"
-#include "phy_link_status_wrapper.h"
-#include "fsl_enet_driver.h"
-#include "fsl_enet_hal.h"
-#include "fsl_phy_driver.h"
-#include "mbed-drivers/mbed_interface.h"
-#include "fsl_interrupt_manager.h"
+#include "fsl_enet.h"
+#include "fsl_phy.h"
+#include "eventOS_event_timer.h"
 #define HAVE_DEBUG 1
 #include "ns_trace.h"
-#include "ns_list.h"
 #include "nsdynmemLIB.h"
+#ifdef MBED_CONF_RTOS_PRESENT
+#include "cmsis_os.h"
+#endif
 
 
-/* Any Pre-processor Macros*/
-#define AUTO_INDEX (-1)
+/* Macro Definitions */
 #ifndef MEM_ALLOC
 #define MEM_ALLOC ns_dyn_mem_alloc
 #endif
 #ifndef MEM_FREE
 #define MEM_FREE ns_dyn_mem_free
 #endif
-#define TRACE_GROUP  "ethDrv"
+#define TRACE_GROUP  "Eth"
+#define ENET_HDR_LEN                  (14)
+#define ENET_RX_RING_LEN              (4)
+#define ENET_TX_RING_LEN              (4)
+#define ENET_ETH_MAX_FLEN             (1518)
+#define ENET_PTR_ALIGN(x,align)       ((void *)(((uintptr_t)(x) + ((align)-1)) & (~(uintptr_t)((align)- 1))))
+#define ENET_SIZE_ALIGN(x,align)      (((size_t)(x) + ((align)-1)) & (~(size_t)((align)- 1)))
+#define ENET_BuffPtrAlign(n)          ENET_PTR_ALIGN(n, ENET_BUFF_ALIGNMENT)
+#define ENET_BuffSizeAlign(n)         ENET_SIZE_ALIGN(n, ENET_BUFF_ALIGNMENT)
+
 
 /* Function Prototypes*/
 static int8_t arm_eth_phy_k64f_address_write(phy_address_type_e address_type, uint8_t *address_ptr);
 static void k64f_eth_set_address(uint8_t *address_ptr);
 static int8_t arm_eth_phy_k64f_interface_state_control(phy_interface_state_e state, uint8_t x);
 static int8_t arm_eth_phy_k64f_tx(uint8_t *data_ptr, uint16_t data_len, uint8_t tx_handle,data_protocol_e data_flow);
-void enet_phy_link_setup (enet_dev_if_t *ethernet_iface_ptr);
+static void PHY_LinkStatus_Task(void *y);
+static void eth_if_lock(void);
+static void eth_if_unlock(void);
+static void k64f_eth_initialize(uint8_t *mac_addr);
+static int8_t k64f_eth_send(const uint8_t *data_ptr, uint16_t data_len);
+static void k64f_eth_receive(volatile enet_rx_bd_struct_t *bdPtr);
+static void update_read_buffer(void);
+static void ethernet_event_callback(ENET_Type *base, enet_handle_t *handle, enet_event_t event, void *param);
+
+/* Callback function to notify stack about the readiness of the Eth module */
 void (*driver_readiness_status_callback)(uint8_t, int8_t) = 0;
-void eth_enable_interrupts(void);
-void eth_disable_interrupts(void);
-static int8_t k64f_eth_initialize(void);
-static int8_t k64f_eth_send(uint8_t *data_ptr, uint16_t data_len);
-extern void k64f_init_eth_hardware(void);
 
-/*Internal Global Variables and declaration of data structures*/
-static bool eth_driver_enabled = false;
-static int8_t eth_interface_id = -1;
+/* External function from hardware_init.c
+ * Initializes the Eth module hardware */
+extern void initialize_enet_hardware(void);
+
+/* Global Eth module Handle*/
+static enet_handle_t global_enet_handle;
+
+/* Nanostack generic PHY driver structure */
 static phy_device_driver_s eth_device_driver;
-static enet_dev_if_t ethernet_iface[HW_ENET_INSTANCE_COUNT];
-static enet_mac_config_t ethernet_mac_config[HW_ENET_INSTANCE_COUNT];
-static enet_phy_config_t enetPhyCfg[HW_ENET_INSTANCE_COUNT] =
-{
-  {0, false}
-};
 
-typedef struct Ethernet_BufferDesc_Ring_t{
-    volatile uint32_t rx_free_desc; /* No. of free rx buffer descriptors*/
-    volatile uint32_t tx_free_desc; /* No. of free tx buffer descriptors*/
-    uint8_t *rx_buf_desc_start_addr; /* Pointer to RX buffer descriptor start address*/
-    uint8_t *tx_buf_desc_start_addr; /* Pointer to TX buffer descriptor start address*/
-    uint8_t rx_fill_index; /* tells how much RX buffer descriptor ring is filled already*/
-    uint8_t tx_buf_busy_index;
-    uint8_t tx_buf_free_index;
-    uint8_t *rx_data_buf_ptr[ENET_RX_RING_LEN];
-    uint8_t *tx_data_buf_ptr[ENET_TX_RING_LEN];
-    void *txb_aligned[ENET_TX_RING_LEN]; /**< TX aligned buffers (if needed) */
-}Ethernet_BufferDesc_Ring_t;
+#ifdef MBED_CONF_RTOS_PRESENT
 
-extern IRQn_Type enet_irq_ids[HW_ENET_INSTANCE_COUNT][FSL_FEATURE_ENET_INTERRUPT_COUNT];
-extern uint8_t enetIntMap[kEnetIntNum];
-static uint32_t device_id = BOARD_DEBUG_ENET_INSTANCE_ADDR;
-static uint8_t isAutoIndex = 0;
-static uint8_t phy_status_already_posted = 0;
-static Eth_PHY_Link_Status last_known_status = LINK_STATUS_DOWN;
+/* Thread IDs for the threads we will start */
+static osThreadId eth_irq_thread_id;
 
-ENET_Type *const g_enetBase[] = ENET_BASE_PTRS;
+/* Signals for IRQ thread */
+#define SIG_TX  1
+#define SIG_RX  2
 
-static Ethernet_BufferDesc_Ring_t buffer_descriptor_ring[HW_ENET_INSTANCE_COUNT];
+/* This routine starts a 'Thread' which handles IRQs*/
+static void Eth_IRQ_Thread_Create(void);
+#endif /*MBED_CONF_RTOS_PRESENT*/
 
-/* This function registers the ethernet driver to the Nanostack */
-/* After registration to the stack, it initializez the driver itself*/
+/* Main data structure for keeping Eth module data */
+typedef struct Eth_Buf_Data_S {
+    /* Pointers to start addresses of TX/RX Buffer descriptor*/
+    volatile enet_rx_bd_struct_t *rx_buf_desc_start_addr;
+    volatile enet_tx_bd_struct_t *tx_buf_desc_start_addr;
+    /* Pointer to Buffers themselves */
+    uint8_t *rx_buf[ENET_RX_RING_LEN];
+    uint8_t *tx_buf[ENET_TX_RING_LEN];
+} Eth_Buf_Data_S;
+
+/* Global Variables */
+static Eth_Buf_Data_S base_DS;
+static uint8_t eth_driver_enabled = 0;
+static int8_t eth_interface_id = -1;
+static bool link_currently_up = false;
+
+
+/** \brief  Function to register the ethernet driver to the Nanostack
+ *
+ *  \param[in] mac_ptr  Pointer to MAC address
+ *  \param[in] driver_status_cb  Function pointer to notify the caller about driver status
+ */
 void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*driver_status_cb)(uint8_t, int8_t))
 {
     if (eth_interface_id < 0) {
@@ -120,13 +140,24 @@ void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*driver_status_cb)(uint
     }
 
     if (!eth_driver_enabled) {
-        int8_t ret = k64f_eth_initialize();
-        eth_driver_enabled = true;
+        k64f_eth_initialize(mac_ptr);
+        eth_driver_enabled = 1;
+        driver_readiness_status_callback(link_currently_up, eth_interface_id);
+#ifdef MBED_CONF_RTOS_PRESENT
+        Eth_IRQ_Thread_Create();
+#endif
+        eventOS_timeout_ms(PHY_LinkStatus_Task, 500, NULL);
     }
 }
 
-/* This function is called by Nanostack in order to spit out packets through
- * Ethernet Interface */
+
+/** \brief  TX routine used by Nanostack to transmit via Ethernet Interface
+ *
+ *  \param[in] data_ptr   Pointer to data packet
+ *  \param[in] drta_len   Length of the data packet
+ *  \param[in] tx_handle  Not used in this context. Safe to pass Null.
+ *  \param[in] tdata_flow Not used in this context. Safe to pass Null.
+ */
 static int8_t arm_eth_phy_k64f_tx(uint8_t *data_ptr, uint16_t data_len, uint8_t tx_handle,data_protocol_e data_flow)
 {
     int retval = -1;
@@ -165,324 +196,160 @@ static int8_t arm_eth_phy_k64f_interface_state_control(phy_interface_state_e sta
     return 0;
 }
 
-/* Initializes the Receive queue for Receive buffer descriptors and also re-queues
- * any used buffers */
-static void rx_queue(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t *data_buf_ptr, int8_t index)
+/** \brief  Function to update the RX buffer descriptors
+ *
+ *  Moves the pointer to next buffer descriptor. If its the end of the Ring, wraps
+ *  it around.
+ */
+static void update_read_buffer(void)
 {
-    uint8_t *aligned_ptr = (uint8_t*)ENET_ALIGN((uint32_t)data_buf_ptr, RX_BUF_ALIGNMENT);
-    enet_bd_struct_t *start = (enet_bd_struct_t *)buf_desc_ring->rx_buf_desc_start_addr;
-    uint8_t idx;
-    /* Get next free descriptor index */
-    if (index == AUTO_INDEX){
-        idx = buf_desc_ring->rx_fill_index;
-        isAutoIndex = 1;
-    }
-    else{
-        idx = index;
+    /* Clears status. */
+    global_enet_handle.rxBdCurrent->control &= ENET_BUFFDESCRIPTOR_RX_WRAP_MASK;
+
+    /* Sets the receive buffer descriptor with the empty flag. */
+    global_enet_handle.rxBdCurrent->control |= ENET_BUFFDESCRIPTOR_RX_EMPTY_MASK;
+
+    /* Increases the buffer descriptor to the next one. */
+    if (global_enet_handle.rxBdCurrent->control & ENET_BUFFDESCRIPTOR_RX_WRAP_MASK) {
+        global_enet_handle.rxBdCurrent = global_enet_handle.rxBdBase;
+    } else {
+        global_enet_handle.rxBdCurrent++;
     }
 
-    /* Setup descriptor and clear statuses */
-    enet_hal_init_rxbds(start + idx, aligned_ptr, idx == ENET_RX_RING_LEN - 1);
-    buf_desc_ring->rx_data_buf_ptr[idx] = data_buf_ptr;
-    /* Wrap at end of descriptor list */
-    idx = (idx + 1) % ENET_RX_RING_LEN;
-    /* Update index of free descriptors*/
-    buf_desc_ring->rx_free_desc -= 1;
-    if (isAutoIndex){
-        buf_desc_ring->rx_fill_index = idx;
-        isAutoIndex = 0;
-    }
-    /* Activate current buffer descriptor */
-    enet_hal_active_rxbd(BOARD_DEBUG_ENET_INSTANCE_ADDR);
+    /* Actives the receive buffer descriptor. */
+    ENET->RDAR = ENET_RDAR_RDAR_MASK;
 }
 
-/* Allocates an alligned bunch of memory for receive queue usage.*/
-static int8_t rx_queue_alligned_to_buf_desc(Ethernet_BufferDesc_Ring_t *buf_desc_ring, int8_t index)
+
+/** \brief  Function to receive data packets
+ *
+ *  Reads the data from the buffer provided by the buffer descriptor and hands
+ *  it over to the Nanostack.
+ *
+ *  \param[in] bdPtr  Pointer to the receive buffer descriptor structure
+ *  \param[in] idx    Index of the current buffer descriptor
+ */
+static void k64f_eth_receive(volatile enet_rx_bd_struct_t *bdPtr)
 {
-    enet_dev_if_t *ethernet_iface_ptr = (enet_dev_if_t *)&ethernet_iface[BOARD_DEBUG_ENET_INSTANCE];
-
-
-    while(buf_desc_ring->rx_free_desc > 0){
-        /* Allocate memory for received data buffer and allign it to the
-         * corresponding buffer descriptor*/
-        uint8_t *buf_ptr = MEM_ALLOC(ethernet_iface_ptr->macCfgPtr->rxBufferSize + RX_BUF_ALIGNMENT);
-        if (!buf_ptr){
-           // tr_error("Could not allocate memory. rx_queue_alligned_to_buf_desc.");
-            return -1;
+    if (!(bdPtr->control & ENET_BUFFDESCRIPTOR_RX_ERR_MASK)) {
+        /* Hand it over to Nanostack*/
+        if (eth_device_driver.phy_rx_cb) {
+            eth_device_driver.phy_rx_cb(bdPtr->buffer, bdPtr->length, 0xff,
+                                                 0, eth_interface_id);
         }
-        rx_queue(buf_desc_ring, buf_ptr, index);
     }
-
-    return 0;
 }
 
-/*Setup for Reveive Buffer Desciptors*/
-static int8_t k64f_eth_rx_buf_desc_setup(Ethernet_BufferDesc_Ring_t *buf_desc_ring, enet_rxbd_config_t *rxbdCfg)
+/** \brief  Function to reclaim used TX buffer descriptor
+ *
+ *  This function is called after a TX interrupt takes place. The interrupt will
+ *  kick the IRQ thread which will eventually call this function.
+ */
+static void tx_queue_reclaim(void)
 {
-    enet_dev_if_t *ethernet_iface_ptr = (enet_dev_if_t *)&ethernet_iface[BOARD_DEBUG_ENET_INSTANCE];
+    // Traverse all descriptors, looking for the ones modified by the uDMA
+    while (!(global_enet_handle.txBdDirty->control & ENET_BUFFDESCRIPTOR_TX_READY_MASK) && global_enet_handle.txBdDirty->buffer) {
+        uint8_t i = global_enet_handle.txBdDirty - global_enet_handle.txBdBase;
+        global_enet_handle.txBdDirty->buffer = NULL;
+        MEM_FREE(base_DS.tx_buf[i]);
+        base_DS.tx_buf[i] = NULL;
 
-    uint8_t *rxBdPtr;
-    uint32_t rxBufferSizeAligned;
-
-    /* Allocate memory to RX buffer descriptors - 29x16+8 Bytes*/
-    rxBdPtr = MEM_ALLOC(enet_hal_get_bd_size()*ethernet_iface_ptr->macCfgPtr->rxBdNumber+ENET_BD_ALIGNMENT);
-
-    if(!rxBdPtr){
-        tr_error("Could not allocate memory for rx buffer descriptors.");
-        return -1;
-      }
-
-    buf_desc_ring->rx_buf_desc_start_addr = (uint8_t *)ENET_ALIGN((uint32_t)rxBdPtr, ENET_BD_ALIGNMENT);
-    buf_desc_ring->rx_free_desc = ethernet_iface_ptr->macCfgPtr->rxBdNumber;
-    buf_desc_ring->rx_fill_index = 0;
-
-    rxBufferSizeAligned = ENET_ALIGN(ethernet_iface_ptr->macCfgPtr->rxBufferSize, ENET_RX_BUFFER_ALIGNMENT);
-    ethernet_iface_ptr->macContextPtr->rxBufferSizeAligned = rxBufferSizeAligned;
-    rxbdCfg->rxBdPtrAlign = buf_desc_ring->rx_buf_desc_start_addr ;
-    rxbdCfg->rxBdNum = ethernet_iface_ptr->macCfgPtr->rxBdNumber;
-    rxbdCfg->rxBufferNum = ethernet_iface_ptr->macCfgPtr->rxBdNumber;
-
-    memset(rxbdCfg->rxBdPtrAlign, 0, enet_hal_get_bd_size()*ethernet_iface_ptr->macCfgPtr->rxBdNumber);
-
-    rx_queue_alligned_to_buf_desc(buf_desc_ring, AUTO_INDEX);
-
-    return 0;
-}
-
-/*Setup for Transmit Buffer Desciptors*/
-static int8_t k64f_eth_tx_buf_desc_setup(Ethernet_BufferDesc_Ring_t *buf_desc_ring, enet_txbd_config_t *txbdCfg)
-{
-    uint8_t *txBdPtr;
-    enet_dev_if_t *ethernet_iface_ptr = (enet_dev_if_t *)&ethernet_iface[BOARD_DEBUG_ENET_INSTANCE];
-
-    /* Allocate memory to TX buffer descriptors */
-    txBdPtr = MEM_ALLOC(enet_hal_get_bd_size() * ethernet_iface_ptr->macCfgPtr->txBdNumber + ENET_BD_ALIGNMENT);
-    if(!txBdPtr){
-        tr_error("Could not allocate memory for tx buffer descriptors.");
-        return -1;
-    }
-
-    buf_desc_ring->tx_buf_desc_start_addr = (uint8_t *)ENET_ALIGN((uint32_t)txBdPtr, ENET_BD_ALIGNMENT);
-    buf_desc_ring->tx_free_desc = ethernet_iface_ptr->macCfgPtr->txBdNumber;
-    buf_desc_ring->tx_buf_busy_index = buf_desc_ring->tx_buf_free_index = 0;
-
-    txbdCfg->txBdPtrAlign = buf_desc_ring->tx_buf_desc_start_addr;
-    txbdCfg->txBufferNum = ethernet_iface_ptr->macCfgPtr->txBdNumber;
-    txbdCfg->txBufferSizeAlign = ENET_ALIGN(ethernet_iface_ptr->maxFrameSize, ENET_TX_BUFFER_ALIGNMENT);
-
-    memset(txbdCfg->txBdPtrAlign, 0, enet_hal_get_bd_size() * ethernet_iface_ptr->macCfgPtr->txBdNumber);
-
-    /* Initialize TX descriptor ring */
-    enet_hal_init_txbds(buf_desc_ring->tx_buf_desc_start_addr+ enet_hal_get_bd_size() * (ENET_TX_RING_LEN- 1), 1);
-
-    return 0;
-}
-
-/* Sets up the receive buffer ready to be collected by Nanostack */
-static uint8_t *Buf_to_Nanostack(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t idx, uint16_t *data_length)
-{
-    enet_bd_struct_t *bdPtr = (enet_bd_struct_t*)buf_desc_ring->rx_buf_desc_start_addr;
-    const uint16_t err_mask = kEnetRxBdTrunc | kEnetRxBdCrc | kEnetRxBdNoOctet | kEnetRxBdLengthViolation;
-    uint8_t *rx_data_buf_ptr = NULL;
-    int8_t retcode=0;
-
-    /* If the recieved packet is in error, discard it and empty the logical
-     * descriptor*/
-    if ((bdPtr[idx].control & err_mask) != 0) {
-        rx_data_buf_ptr = buf_desc_ring->rx_data_buf_ptr[idx];
-        buf_desc_ring->rx_data_buf_ptr[idx] = NULL;
-        buf_desc_ring->rx_free_desc++;
-        /* Re-queue the descriptors and get rid of malformed packet */
-        rx_queue(buf_desc_ring, rx_data_buf_ptr, idx);
-        rx_data_buf_ptr = NULL;
-        tr_warn("Malformed packet at RX.");
-        return rx_data_buf_ptr;
-      }
-
-    /* Otherwise, copy the pointer to the data and empty the descriptor plus
-     * allign it again to our rx desciptor ring */
-    *data_length = enet_hal_get_bd_length(bdPtr + idx);
-    /* Don't memcpy() here. No need */
-    rx_data_buf_ptr = buf_desc_ring->rx_data_buf_ptr[idx];
-    /* Clear pointer from descriptor */
-    buf_desc_ring->rx_data_buf_ptr[idx] = NULL;
-    /* Update index of free descriptors*/
-    buf_desc_ring->rx_free_desc++;
-    /* Allign the queue to buffer_descriptor again */
-    retcode = rx_queue_alligned_to_buf_desc(buf_desc_ring, idx);
-
-    /*if memory allocation would fail, following code makes sure to re-queue the
-     * descriptor */
-    if(retcode==-1){
-        rx_queue(buf_desc_ring, rx_data_buf_ptr, idx);
-        rx_data_buf_ptr = NULL;
-    }
-
-
-    return rx_data_buf_ptr;
-}
-
-/* This function is called whenever there is data at Ethernet. Prepares and pushes
- * the buffer to the Nanostack */
-static void k64f_eth_receive(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t idx)
-{
-    uint8_t *rx_data_buf_ptr = 0;
-    int8_t retval = -1;
-    uint16_t data_length=0;
-
-    /* Prepare the push to Nanostack, if it ends up in error return
-     * immidiately */
-    rx_data_buf_ptr = Buf_to_Nanostack(buf_desc_ring, idx, &data_length);
-    if(rx_data_buf_ptr==NULL){
-        //tr_warn("No data in , Buf_to_nanostack.");
-        return;
-    }
-
-    /*Allign data according to the receive buffer allinment setting*/
-    uint8_t *aligned_ptr = (uint8_t*)ENET_ALIGN((uint32_t)rx_data_buf_ptr, RX_BUF_ALIGNMENT);
-
-    /* When alligned, Hand it over to Nanostack*/
-    if( eth_device_driver.phy_rx_cb ){
-        retval = eth_device_driver.phy_rx_cb(aligned_ptr, data_length, 0xff, 0, eth_interface_id);
-    }
-
-    (void) retval;
-
-    MEM_FREE(rx_data_buf_ptr);
-}
-
-/* This function is called after the Transmission in order to perform buffer
- * descriptor cleanup */
-static void tx_queue_reclaim(Ethernet_BufferDesc_Ring_t *buf_desc_ring)
-{
-    uint8_t index = 0;
-    volatile enet_bd_struct_t *bdPtr = (enet_bd_struct_t*)buf_desc_ring->tx_buf_desc_start_addr;
-
-    /* Traverse all descriptors, looking for the ones modified by the uDMA */
-    index = buf_desc_ring->tx_buf_busy_index;
-
-    while (index != buf_desc_ring->tx_buf_free_index && !(bdPtr[index].control & kEnetTxBdReady)) {
-        if (buf_desc_ring->txb_aligned[index]) {
-            MEM_FREE(buf_desc_ring->txb_aligned[index]);
-            buf_desc_ring->txb_aligned[index] = NULL;
+        if (global_enet_handle.txBdDirty->control & ENET_BUFFDESCRIPTOR_TX_WRAP_MASK) {
+            global_enet_handle.txBdDirty = global_enet_handle.txBdBase;
+        } else {
+            global_enet_handle.txBdDirty++;
         }
-        else if (buf_desc_ring->tx_data_buf_ptr[index]) {
-            MEM_FREE(buf_desc_ring->tx_data_buf_ptr[index]);
-            buf_desc_ring->tx_data_buf_ptr[index] = NULL;
-        }
-        bdPtr[index].controlExtend2 &= ~TX_DESC_UPDATED_MASK;
-        //tr_debug("Reclaimed BufferDescriptor[%i].", index);
-        index = (index + 1) % ENET_TX_RING_LEN;
     }
-
-    buf_desc_ring->tx_buf_busy_index = index;
 }
 
-/* This function tells how many tx buffer descriptors are free at the moment */
-uint8_t k64f_tx_descriptors_ready(Ethernet_BufferDesc_Ring_t *buf_desc_ring)
+
+/** \brief  Function to send data packets
+ *
+ * This function is called by arm_eth_phy_tx() which is in turn called through
+ * Nanostack.
+ *
+ *  \param[in] data_ptr  Pointer to the data buffer
+ *  \param[in] data_len  Length of the data
+ *
+ *  \returns 0 if successfull, <0 if unsuccessful
+ */
+static int8_t k64f_eth_send(const uint8_t *data_ptr, uint16_t data_len)
 {
-    uint8_t fb;
-    uint8_t idx, fidx;
-
-    fidx = buf_desc_ring->tx_buf_free_index;
-    idx = buf_desc_ring->tx_buf_busy_index;
-
-    /* Determine number of free buffers */
-    if (fidx >= idx)
-        fb = (ENET_TX_RING_LEN - 1) - (fidx - idx);
-    else
-        fb = (ENET_TX_RING_LEN - 1) - ((fidx + ENET_TX_RING_LEN) - idx);
-
-    return fb;
-}
-
-/* Update the buffer descriptor, which means spit out what you have in there */
-void k64f_update_txbds(Ethernet_BufferDesc_Ring_t *buf_desc_ring, uint8_t idx, uint8_t *buffer, uint16_t length, bool isLast)
-{
-    volatile enet_bd_struct_t *bdPtr = (enet_bd_struct_t *)(buf_desc_ring->tx_buf_desc_start_addr + idx * enet_hal_get_bd_size());
-
-    bdPtr->length = HTONS(length); /* Set data length*/
-    bdPtr->buffer = (uint8_t *)HTONL((uint32_t)buffer); /* Set data buffer*/
-    if (isLast)
-        bdPtr->control |= kEnetTxBdLast;
-    else
-        bdPtr->control &= ~kEnetTxBdLast;
-    bdPtr->controlExtend1 |= kEnetTxBdTxInterrupt;
-    bdPtr->controlExtend2 &= ~TX_DESC_UPDATED_MASK; // descriptor not updated by DMA
-    bdPtr->control |= kEnetTxBdTransmitCrc | kEnetTxBdReady;
-}
-
-/* This function is called by arm_eth_phy_tx() which is in turn called through
- * Nanostack. As evident from name, this sends out the transmit packets */
-static int8_t k64f_eth_send(uint8_t *data_ptr, uint16_t data_len)
-{
-    uint8_t index = 0;
-    uint8_t descriptor_num = 0;
-
-    Ethernet_BufferDesc_Ring_t *buf_desc_ring =
-            &buffer_descriptor_ring[BOARD_DEBUG_ENET_INSTANCE];
-
-    /* Get the index of the Free TX descriptor */
-    index = buf_desc_ring->tx_buf_free_index;
-
     /*Sanity Check*/
     if (data_len > ENET_ETH_MAX_FLEN) {
         tr_error("Packet size bigger than ENET_TXBuff_SIZE.");
         return -1;
     }
 
-    /* Check if there are any buffer descriptors free */
-    descriptor_num = k64f_tx_descriptors_ready(buf_desc_ring);
-    if (descriptor_num < 1) {
+    /* Get the index of the next TX descriptor */
+    uint8_t index = global_enet_handle.txBdCurrent - global_enet_handle.txBdBase;
+
+    /* Check if next descriptor is free - reclaim should have freed tx_buf */
+    if (base_DS.tx_buf[index]) {
         tr_error("TX buf descriptors full. Can't queue packet.");
         return -1;
     }
 
-    uint8_t *buf_ptr = MEM_ALLOC(data_len + TX_BUF_ALIGNMENT);
+    uint8_t *buf_ptr = MEM_ALLOC(data_len + ENET_BUFF_ALIGNMENT);
     if (!buf_ptr) {
         tr_error("Alloc failed");
         return -1;
     }
 
-    uint8_t *aligned_ptr = (uint8_t*) ENET_ALIGN((uint32_t )buf_ptr,
-                                                 TX_BUF_ALIGNMENT);
-
-    buf_desc_ring->tx_data_buf_ptr[index] = buf_ptr;
-
+    // Protect against reclaim routine swallowing tx_buf before we set READY
+    eth_if_lock();
+    base_DS.tx_buf[index] = buf_ptr;
+    uint8_t *aligned_ptr = ENET_BuffPtrAlign(buf_ptr);
     memcpy(aligned_ptr, data_ptr, data_len);
 
-    //if (aligned_ptr[12] == 0x86 && aligned_ptr[13] == 0xDD) {
-    //    tr_debug("Data TX %u %s", data_len, trace_array(aligned_ptr, 24));
-    //}
+    /* Setup transfers */
+    global_enet_handle.txBdCurrent->buffer = aligned_ptr;
+    global_enet_handle.txBdCurrent->length = data_len;
+    global_enet_handle.txBdCurrent->control |=
+            (ENET_BUFFDESCRIPTOR_TX_READY_MASK
+                    | ENET_BUFFDESCRIPTOR_TX_LAST_MASK);
 
-    k64f_update_txbds(buf_desc_ring, index, aligned_ptr, data_len, 1);
-    buf_desc_ring->txb_aligned[index] = NULL;
+    /* Increase the buffer descriptor address. */
+    if (global_enet_handle.txBdCurrent->control
+            & ENET_BUFFDESCRIPTOR_TX_WRAP_MASK) {
+        global_enet_handle.txBdCurrent = global_enet_handle.txBdBase;
+    } else {
+        global_enet_handle.txBdCurrent++;
+    }
+    eth_if_unlock();
 
-    index = (index + 1) % ENET_TX_RING_LEN;
-    buf_desc_ring->tx_buf_free_index = index;
-    //tr_debug("Next TX buffer = %i", index);
-
-    enet_hal_active_txbd(BOARD_DEBUG_ENET_INSTANCE_ADDR);
+    /* Active the transmit buffer descriptor. */
+    ENET->TDAR = ENET_TDAR_TDAR_MASK;
 
     return 0;
 }
 
-/* This function is calle by arm_eth_phy_k64f_address_write() which is in turn
- * called by nanostack in order to set up MAC address */
+
+/** \brief  Sets up MAC address
+ *
+ * This function is calle by arm_eth_phy_k64f_address_write() which is in turn
+ * called by nanostack in order to set up MAC address
+ *
+ *  \param[in] address_ptr   Pointer to MAC address block
+ */
 static void k64f_eth_set_address(uint8_t *address_ptr)
 {
-    enet_mac_config_t*mac_config =
-            &(ethernet_mac_config[BOARD_DEBUG_ENET_INSTANCE]);
-
     /* When pointer to the MAC address is given. It could be 48-bit EUI generated
      * from Radio, like atmel RF or manually inserted. Preferred method.*/
-    memcpy(mac_config->macAddr, address_ptr, kEnetMacAddrLen);
-    enet_hal_set_mac_address(device_id, mac_config->macAddr);
+    ENET_SetMacAddr(ENET, address_ptr);
 }
 
-/* This function sets the MAC address and its type for the Ethernet interface*/
-/* Only type supported is 48 bits. If address_ptr is NULL, we will try to set the
- * address using mbed-drivers. */
+
+/** \brief  Stack sets the MAC address using this routine
+ *
+ * This function sets the MAC address and its type for the Ethernet interface
+ * Only type supported is 48 bits.
+ *
+ *  \param[in] address_type   Type of MAC address, i.e., 48 bit, 64 bit etc.
+ *  \param[in] address_ptr    Pointer to MAC address
+ *
+ *  \return  0 if successful <0 if unsuccessful
+ */
 static int8_t arm_eth_phy_k64f_address_write(phy_address_type_e address_type, uint8_t *address_ptr)
 {
     int8_t retval = 0;
@@ -501,236 +368,280 @@ static int8_t arm_eth_phy_k64f_address_write(phy_address_type_e address_type, ui
     return retval;
 }
 
-void enet_phy_link_setup (enet_dev_if_t *ethernet_iface_ptr)
+
+/** \brief  Task check the status of PHY link
+ *
+ *      This task PHY link status and tells the stack if the Eth cable is
+ *      connected or not. Checks the status after every 500 millisecond.
+ *
+ *  \param[in] Optional user-given parameter
+ */
+static void PHY_LinkStatus_Task(void *y)
 {
-    /* Get link information from PHY */
-      enet_phy_speed_t phy_speed;
-      enet_phy_duplex_t phy_duplex;
-      phy_get_link_speed(ethernet_iface_ptr, &phy_speed);
-      phy_get_link_duplex(ethernet_iface_ptr, &phy_duplex);
-      BW_ENET_RCR_RMII_10T(ethernet_iface_ptr->deviceNumber, phy_speed == kEnetSpeed10M ? kEnetCfgSpeed10M : kEnetCfgSpeed100M);
-      if((phy_speed == kEnetSpeed10M ? kEnetCfgSpeed10M : kEnetCfgSpeed100M)==0){
-          tr_debug("ETH Link Speed = 100M");
-      }
-      BW_ENET_TCR_FDEN(ethernet_iface_ptr->deviceNumber, phy_duplex == kEnetFullDuplex ? kEnetCfgFullDuplex : kEnetCfgHalfDuplex);
-      if(phy_duplex == kEnetFullDuplex ? kEnetCfgFullDuplex : kEnetCfgHalfDuplex){
-          tr_debug("ETH Duplex = FULL");
-      }
+    bool link = false;
 
-
-      /* Enable Ethernet module*/
-      enet_hal_config_ethernet(BOARD_DEBUG_ENET_INSTANCE_ADDR, true, true);
-
-      /* Active Receive buffer descriptor must be done after module enable*/
-      enet_hal_active_rxbd(ethernet_iface_ptr->deviceNumber);
-
-      tr_info("Ethernet Interface Initialized. Succes");
-
-      /* All went well, now enable interrupts*/
-      eth_enable_interrupts();
-      driver_readiness_status_callback(1, eth_interface_id);
-}
-
-/* This function initializes the Ethernet Interface for frdm-k64f*/
-static int8_t k64f_eth_initialize()
-{
-    int8_t retval = -1;
-
-    enet_dev_if_t *ethernet_iface_ptr;
-    enet_mac_config_t *mac_config_ptr;
-    enet_config_rx_accelerator_t rxAcceler;
-    enet_config_tx_accelerator_t txAcceler;
-    enet_rxbd_config_t rxbdCfg;
-    enet_txbd_config_t txbdCfg;
-
-
-    Ethernet_BufferDesc_Ring_t *buf_desc_ring = &buffer_descriptor_ring[BOARD_DEBUG_ENET_INSTANCE];
-
-    ethernet_iface_ptr = &(ethernet_iface[BOARD_DEBUG_ENET_INSTANCE]);
-    mac_config_ptr = &(ethernet_mac_config[BOARD_DEBUG_ENET_INSTANCE]);
-
-    /*Initialize Ethernet Hardware on k64f board, so as to setup pins and clock*/
-    k64f_init_eth_hardware();
-
-    /* Setup the device ID*/
-    ethernet_iface_ptr->deviceNumber = device_id;
-
-    /* Setup MAC related configuration settings*/
-    mac_config_ptr->rxBufferSize = ENET_ETH_MAX_FLEN;
-    mac_config_ptr->txBufferSize = ENET_ETH_MAX_FLEN;
-    mac_config_ptr->rxLargeBufferNumber = 0;
-    mac_config_ptr->rxBdNumber = ENET_RX_RING_LEN;
-    mac_config_ptr->txBdNumber = ENET_TX_RING_LEN;
-    /* ! MAC address was alread set by the function k64f_eth_set_address ! */
-    mac_config_ptr->rmiiCfgMode = kEnetCfgRmii;
-    mac_config_ptr->speed = kEnetCfgSpeed100M;
-    mac_config_ptr->duplex = kEnetCfgFullDuplex;
-    mac_config_ptr->macCtlConfigure = kEnetRxCrcFwdEnable | kEnetRxFlowControlEnable,
-    mac_config_ptr->isTxAccelEnabled = true;
-    mac_config_ptr->isRxAccelEnabled = true;
-    mac_config_ptr->isStoreAndFwEnabled = false;
-    rxAcceler.isIpcheckEnabled = false;
-    rxAcceler.isMacCheckEnabled = true;
-    rxAcceler.isPadRemoveEnabled = false;
-    rxAcceler.isProtocolCheckEnabled = false;
-    rxAcceler.isShift16Enabled = false;
-    mac_config_ptr->rxAcceler = rxAcceler;
-    txAcceler.isIpCheckEnabled = false;
-    txAcceler.isProtocolCheckEnabled = false;
-    txAcceler.isShift16Enabled = false;
-    mac_config_ptr->txAcceler = txAcceler;
-    mac_config_ptr->isVlanEnabled = false;
-    mac_config_ptr->isPhyAutoDiscover = true;
-    mac_config_ptr->miiClock = ENET_MII_CLOCK;
-
-    ethernet_iface_ptr->macContextPtr = MEM_ALLOC (sizeof(enet_mac_context_t));
-    if (!ethernet_iface_ptr->macContextPtr) {
-        tr_debug("Memory Allocation Failed. mac_context_ptr");
-        return -1;
-    }
-    memset(ethernet_iface_ptr->macContextPtr, 0, sizeof(enet_mac_context_t));
-    ethernet_iface_ptr->maxFrameSize = ENET_ETH_MAX_FLEN;
-    ethernet_iface_ptr->macCfgPtr = mac_config_ptr;
-
-    /* Setup PHY related configuration settings*/
-    ethernet_iface_ptr->phyCfgPtr = &enetPhyCfg[BOARD_DEBUG_ENET_INSTANCE];
-    ethernet_iface_ptr->macApiPtr = &g_enetMacApi;
-    ethernet_iface_ptr->phyApiPtr = (void *)&g_enetPhyApi;
-
-    /* Setup RX buffer descriptors*/
-    retval = k64f_eth_rx_buf_desc_setup(buf_desc_ring, &rxbdCfg);
-    if (retval==-1){
-        return retval;
-    }
-
-    /* Setup TX buffer descriptors*/
-    retval = k64f_eth_tx_buf_desc_setup(buf_desc_ring, &txbdCfg);
-    if (retval==-1){
-        return retval;
-    }
-
-    /* Initialize MAC layer*/
-    if (enet_mac_init(ethernet_iface_ptr, &rxbdCfg, &txbdCfg)
-            == kStatus_ENET_Success) {
-        /* Initialize PHY layer*/
-        if (ethernet_iface_ptr->macCfgPtr->isPhyAutoDiscover) {
-            if (((enet_phy_api_t *) (ethernet_iface_ptr->phyApiPtr))->phy_auto_discover(
-                    ethernet_iface_ptr) != kStatus_PHY_Success) {
-                tr_debug("INIT_MAC. Auto discover fail.");
-                return -1;
-            }
+    eth_if_lock();
+    PHY_GetLinkStatus(ENET, 0, &link);
+    if (link != link_currently_up) {
+        link_currently_up = link;
+        if (link) {
+            phy_duplex_t phy_duplex;
+            phy_speed_t phy_speed;
+            PHY_GetLinkSpeedDuplex(ENET, 0, &phy_speed, &phy_duplex);
+            /* Poke the registers*/
+            ENET_SetMII(ENET, (enet_mii_speed_t)phy_speed, (enet_mii_duplex_t)phy_duplex);
         }
-        if (((enet_phy_api_t *) (ethernet_iface_ptr->phyApiPtr))->phy_init(
-                ethernet_iface_ptr) != kStatus_PHY_Success) {
-            tr_debug("INIT_MAC. PHY was not initialized.");
-            driver_readiness_status_callback(0, eth_interface_id);
-            ethernet_iface_ptr->isInitialized = false;
-            phy_link_wrapper_create();
-            return -1;
+        eth_if_unlock();
+        driver_readiness_status_callback(link, eth_interface_id);
+        tr_info ("Ethernet cable %s.", link ? "connected" : "unplugged");
+    } else {
+        eth_if_unlock();
+    }
+
+    eventOS_timeout_ms(PHY_LinkStatus_Task, 500, NULL);
+}
+
+
+/** \brief  Initialization function for Ethernet module.
+ *
+ *      This function initializes the ethernet module using default
+ *      configuration. Link speed and duplex is auto-negotiated. It also sets up
+ *      the buffer descriptors. If MAC address is setup later by the stack using
+ *      k64f_eth_address_set() routine, that will just overwrite the MAC directly
+ *      in Hardware registers.
+ *
+ *  \param[in] mac_addr Pointer to MAC address.
+ *
+ */
+static void k64f_eth_initialize(uint8_t *mac_addr)
+{
+    uint32_t sysClock;
+    phy_speed_t phy_speed;
+    phy_duplex_t phy_duplex;
+    uint32_t phyAddr = 0;
+
+    enet_config_t config;
+
+
+    /* Allocate TX buffer descriptors */
+    void *memptr = MEM_ALLOC(
+            sizeof(enet_tx_bd_struct_t) * ENET_TX_RING_LEN + ENET_BUFF_ALIGNMENT);
+    if (!memptr) {
+        tr_error("Could not allocate memory for TX Buf Descriptors.");
+        return;
+    }
+    base_DS.tx_buf_desc_start_addr = ENET_BuffPtrAlign(memptr);
+    memset((enet_tx_bd_struct_t *) base_DS.tx_buf_desc_start_addr, 0,
+           sizeof(enet_tx_bd_struct_t) * ENET_TX_RING_LEN);
+
+    /* Allocate RX buffer descriptors */
+    memptr = MEM_ALLOC( sizeof(enet_rx_bd_struct_t) * ENET_RX_RING_LEN + ENET_BUFF_ALIGNMENT);
+    if (!memptr) {
+        tr_error("Could not allocate memory for RX Buf Descriptors");
+        return;
+    }
+    base_DS.rx_buf_desc_start_addr = ENET_BuffPtrAlign(memptr);
+    memset((enet_rx_bd_struct_t *) base_DS.rx_buf_desc_start_addr, 0,
+           sizeof(enet_rx_bd_struct_t) * ENET_RX_RING_LEN);
+
+    /* Allocate RX buffers in one contiguous block */
+    memptr = MEM_ALLOC(ENET_BuffSizeAlign(ENET_ETH_MAX_FLEN) * ENET_RX_RING_LEN + ENET_BUFF_ALIGNMENT);
+    if (!memptr) {
+        tr_error("Could not allocate memory for RX Buffers");
+        return;
+    }
+    base_DS.rx_buf[0] = ENET_BuffPtrAlign(memptr);
+
+    /* Fill in pointers to following buffers */
+    for (int i = 1; i < ENET_RX_RING_LEN; i++) {
+        base_DS.rx_buf[i] = base_DS.rx_buf[i-1] + ENET_BuffSizeAlign(ENET_ETH_MAX_FLEN);
+    }
+
+    /* Preparing the Buffer Configurations */
+    enet_buffer_config_t buf_config = {
+        .rxBdNumber = ENET_RX_RING_LEN,
+        .txBdNumber = ENET_TX_RING_LEN,
+        .rxBuffSizeAlign = ENET_BuffSizeAlign(ENET_ETH_MAX_FLEN),
+        .txBuffSizeAlign = 0,
+        .rxBdStartAddrAlign = base_DS.rx_buf_desc_start_addr,
+        .txBdStartAddrAlign = base_DS.tx_buf_desc_start_addr,
+        // it appears this is a wrongly-typed pointer to an array of buffer pointers
+        .rxBufferAlign = (uint8_t *) base_DS.rx_buf,
+        .txBufferAlign = NULL
+    };
+
+    /* Initialize the Ethernet Hardware */
+    initialize_enet_hardware();
+
+    /* Setup Clock for ENET module */
+    sysClock = CLOCK_GetFreq(kCLOCK_CoreSysClk);
+
+    /* Load the Default config (RMII Mode, Full Duplex, 100 Mbps)*/
+    ENET_GetDefaultConfig(&config);
+
+    /* Initialize PHY layer */
+    PHY_Init(ENET, phyAddr, sysClock);
+
+    /* Setup PHY layer */
+    PHY_GetLinkStatus(ENET, phyAddr, &link_currently_up);
+    tr_info("Ethernet cable is %sconnected.", link_currently_up ? "" : "not ");
+    if (link_currently_up) {
+        /* Get link information from PHY (Auto negotiation, in case deafult
+         * config is different from actual link available )  */
+        PHY_GetLinkSpeedDuplex(ENET, phyAddr, &phy_speed, &phy_duplex);
+        /* Change the MII speed and duplex for actual link status. */
+        config.miiSpeed = (enet_mii_speed_t) phy_speed;
+        config.miiDuplex = (enet_mii_duplex_t) phy_duplex;
+    }
+    config.rxMaxFrameLen = ENET_ETH_MAX_FLEN;
+    config.macSpecialConfig = kENET_ControlFlowControlEnable;
+    config.rxAccelerConfig = kENET_RxAccelMacCheckEnabled;
+    config.interrupt = kENET_RxFrameInterrupt | kENET_TxFrameInterrupt;
+
+    /* Initialize ENET module */
+    ENET_Init(ENET, &global_enet_handle, &config, &buf_config, mac_addr,
+              sysClock);
+
+    /* Adding Multicast Group
+     * Even ksdk 2.0 API is weird.
+     * ENET_AddMulticastGroup(ENET_Type *base, uint8_t *address),
+     * this routine will need 64 addresses to set a multicast group.
+     * So let's hack it. For more details->Kevin*/
+    ENET->GAUR = 0xFFFFFFFFu;
+    ENET->GALR = 0xFFFFFFFFu;
+
+    /* Setup callback for Interrupt routines */
+    ENET_SetCallback(&global_enet_handle, ethernet_event_callback, NULL);
+
+    /* Lastly, activate the module */
+    ENET_ActiveRead(ENET);
+}
+
+
+/** \brief  Function to get a lock on the Thread.
+ * An abstraction of platform_enter_critical.
+ * In RTOS Mode: It claims a mutex and protects the foreground operations from
+ *               background stuff.
+ * In Non-RTOS Mode: It disables interrupts and hence protects foreground Ops
+ *               from background ones.
+ */
+static void eth_if_lock(void)
+{
+    platform_enter_critical();
+}
+
+
+/** \brief  Function to release a lock from the Thread.
+ * An abstraction of platform_exit_critical.
+ * In RTOS Mode: Makes sure that we have released the mutex.
+ * In Non-RTOS Mode: Enables interrupts etc.
+ */
+static void eth_if_unlock(void)
+{
+    platform_exit_critical();
+}
+
+
+/** \brief  Interrupt Service Routine for RX IRQ
+ *      If Mbed RTOS is being used, this routine will be called from the
+ *      Eth_IRQ_Thread (thread context) after receiving the signal from
+ *      interrupt context (SIG_RX).
+ *      Otherwise, it will be called directly from the interrupt context.
+ */
+static void enet_rx_task(void)
+{
+    while (!(global_enet_handle.rxBdCurrent->control & ENET_BUFFDESCRIPTOR_RX_EMPTY_MASK)) {
+        k64f_eth_receive(global_enet_handle.rxBdCurrent);
+        update_read_buffer();
+    }
+}
+
+
+/** \brief  Interrupt Service Routine for TX IRQ
+ *      If Mbed RTOS is being used, this routine will be called from the
+ *      Eth_IRQ_Thread (thread context) after receiving the signal from
+ *      interrupt context (SIG_TX).
+ *      Otherwise, it will be called directly from the interrupt context.
+ */
+static void enet_tx_task(void)
+{
+    tx_queue_reclaim();
+}
+
+/** \brief  Callback function to receive Ethernet TX/RX Events
+ *
+ *  Called from the interrupt context. If we are not using mbed RTOS, we call up
+ *  the ISRs, otherwise we send a corresponding signal to the responsible Thread.
+ *
+ *  \param[in] base  Pointer to base structure of Eth module
+ *  \param[in] handle Pointer to global ethernet handle
+ *  \param[in] event  Type of interrupt or any other event (what we have
+ *             registered in init)
+ *  \param[in] param A pointer to user provided data|parameter. [optional]
+ */
+static void ethernet_event_callback(ENET_Type *base, enet_handle_t *handle, enet_event_t event, void *param)
+{
+    switch (event) {
+        case kENET_RxEvent:
+#ifdef MBED_CONF_RTOS_PRESENT
+            osSignalSet(eth_irq_thread_id, SIG_RX);
+#else
+            enet_rx_task();
+#endif /*MBED_CONF_RTOS_PRESENT*/
+            break;
+        case kENET_TxEvent:
+#ifdef MBED_CONF_RTOS_PRESENT
+            osSignalSet(eth_irq_thread_id, SIG_TX);
+#else
+            enet_tx_task();
+#endif /*MBED_CONF_RTOS_PRESENT*/
+            break;
+        default:
+            break;
+    }
+}
+
+#ifdef MBED_CONF_RTOS_PRESENT
+/** \brief  Thread started by ETH_IRQ_Thread_Create
+ *
+ *      Used only in case of  mbed RTOS. This Thread handles the signals coming
+ *      from interrupt context.
+ *
+ *  \param[in] Optional user-given parameter
+ */
+static void Eth_IRQ_Thread(const void *x)
+{
+    for (;;) {
+        osEvent event =  osSignalWait(0, osWaitForever);
+        if (event.status != osEventSignal) {
+            continue;
         }
 
-        enet_phy_link_setup(ethernet_iface_ptr);
-        last_known_status = LINK_STATUS_UP;
-        ethernet_iface_ptr->isInitialized = true;
-        phy_link_wrapper_create();
-        return 0;
-    }
+        eth_if_lock();
 
-    return -1;
-}
+        if (event.value.signals & SIG_RX) {
+            enet_rx_task();
+        }
 
-void k64f_eth_phy_link_poll()
-{
-    bool link_status = false;
-    enet_dev_if_t *ethernet_iface_ptr =
-            &ethernet_iface[BOARD_DEBUG_ENET_INSTANCE];
+        if (event.value.signals & SIG_TX) {
+            enet_tx_task();
+        }
 
-    /* First check, if the cable is connected or not.*/
-    phy_get_link_status(ethernet_iface_ptr, &link_status);
-
-    if (!link_status && last_known_status==LINK_STATUS_UP) {
-        driver_readiness_status_callback(0, eth_interface_id);
-        last_known_status = LINK_STATUS_DOWN;
-        ethernet_iface_ptr->isInitialized = false;
-        tr_debug("Ethernet phy link status = down");
-        tr_info("Ethernet Cable is not connected.");
-    }
-
-    else if (link_status && last_known_status==LINK_STATUS_DOWN) {
-            last_known_status = LINK_STATUS_UP;
-            ethernet_iface_ptr->isInitialized = true;
-            tr_debug("Ethernet phy link status = up");
-            tr_info("Ethernet Cable plugged.");
-            enet_phy_link_setup(ethernet_iface_ptr);
+        eth_if_unlock();
     }
 }
 
-/* Interrupt handling Section*/
 
-/* Enables Ethernet interrupts */
-void eth_enable_interrupts(void)
+/** \brief  Function creating the IRQ thread
+ *
+ *      Used only in case of  mbed RTOS. Creates a thread for IRQ task.
+ */
+static void Eth_IRQ_Thread_Create(void)
 {
-    enet_hal_config_interrupt(BOARD_DEBUG_ENET_INSTANCE_ADDR, (kEnetTxFrameInterrupt | kEnetRxFrameInterrupt), true);
-    INT_SYS_EnableIRQ(enet_irq_ids[BOARD_DEBUG_ENET_INSTANCE][enetIntMap[kEnetRxfInt]]);
-    INT_SYS_EnableIRQ(enet_irq_ids[BOARD_DEBUG_ENET_INSTANCE][enetIntMap[kEnetTxfInt]]);
+    static osThreadDef(Eth_IRQ_Thread, osPriorityRealtime, 512);
+    eth_irq_thread_id = osThreadCreate(osThread(Eth_IRQ_Thread), NULL);
 }
+#endif /*MBED_CONF_RTOS_PRESENT*/
 
-/* Disables Ethernet interrupts */
-void eth_disable_interrupts(void)
-{
-    INT_SYS_DisableIRQ(enet_irq_ids[BOARD_DEBUG_ENET_INSTANCE][enetIntMap[kEnetRxfInt]]);
-    INT_SYS_DisableIRQ(enet_irq_ids[BOARD_DEBUG_ENET_INSTANCE][enetIntMap[kEnetTxfInt]]);
-}
-
-/* Interrupt Service Routine for RX IRQ*/
-void enet_mac_rx_isr(void *enetIfPtr)
-{
-    Ethernet_BufferDesc_Ring_t *buf_desc_ring = &buffer_descriptor_ring[BOARD_DEBUG_ENET_INSTANCE];
-    volatile enet_bd_struct_t *bdPtr = (enet_bd_struct_t*)buf_desc_ring->rx_buf_desc_start_addr;
-    static uint8_t idx = 0;
-
-    /* Clear interrupt */
-    enet_hal_clear_interrupt(((enet_dev_if_t *)enetIfPtr)->deviceNumber, kEnetRxFrameInterrupt);
-
-    while ((bdPtr[idx].control & kEnetRxBdEmpty) == 0) {
-        k64f_eth_receive(buf_desc_ring, idx);
-        idx = (idx + 1) % ENET_RX_RING_LEN;
-    }
-}
-
-/* Interrupt Service Routine for TX IRQ*/
-void enet_mac_tx_isr(void *enetIfPtr)
-{
-    Ethernet_BufferDesc_Ring_t *buf_desc_ring = &buffer_descriptor_ring[BOARD_DEBUG_ENET_INSTANCE];
-
-    /*Clear interrupt*/
-    enet_hal_clear_interrupt(((enet_dev_if_t *)enetIfPtr)->deviceNumber, kEnetTxFrameInterrupt);
-    tx_queue_reclaim(buf_desc_ring);
-}
-
-/* Transmit IRQ Handler*/
-void ENET_Transmit_IRQHandler(void)
-{
-    NVIC_SetPendingIRQ(ENET_Receive_IRQn);
-}
-
-/* Receive IRQ Handler*/
-void ENET_Receive_IRQHandler(void)
-{
-    enet_dev_if_t *ethernet_iface_ptr =
-            &ethernet_iface[BOARD_DEBUG_ENET_INSTANCE];
-
-    platform_interrupts_disabled();
-    if (enet_hal_get_interrupt_status(ethernet_iface_ptr->deviceNumber,
-                                      kEnetRxFrameInterrupt)) {
-        enet_mac_rx_isr(enetIfHandle);
-    }
-
-    if (enet_hal_get_interrupt_status(ethernet_iface_ptr->deviceNumber,
-                                      kEnetTxFrameInterrupt)) {
-        enet_mac_tx_isr(enetIfHandle);
-    }
-    platform_interrupts_enabling();
-}
 
 
