@@ -65,6 +65,8 @@ static int8_t k64f_eth_send(const uint8_t *data_ptr, uint16_t data_len);
 static void k64f_eth_receive(volatile enet_rx_bd_struct_t *bdPtr);
 static void update_read_buffer(void);
 static void ethernet_event_callback(ENET_Type *base, enet_handle_t *handle, enet_event_t event, void *param);
+static status_t Initialize_Enet_PHY(ENET_Type *base, uint32_t phyAddr, uint32_t srcClock_Hz);
+static status_t AutoNegotiation(ENET_Type *base, uint32_t phyAddr);
 
 /* Callback function to notify stack about the readiness of the Eth module */
 void (*driver_readiness_status_callback)(uint8_t, int8_t) = 0;
@@ -107,6 +109,7 @@ static Eth_Buf_Data_S base_DS;
 static uint8_t eth_driver_enabled = 0;
 static int8_t eth_interface_id = -1;
 static bool link_currently_up = false;
+static const clock_ip_name_t s_enetClock[FSL_FEATURE_SOC_ENET_COUNT] = ENET_CLOCKS;
 
 
 /** \brief  Function to register the ethernet driver to the Nanostack
@@ -387,6 +390,7 @@ static void PHY_LinkStatus_Task(void *y)
         if (link) {
             phy_duplex_t phy_duplex;
             phy_speed_t phy_speed;
+            AutoNegotiation(ENET, 0);
             PHY_GetLinkSpeedDuplex(ENET, 0, &phy_speed, &phy_duplex);
             /* Poke the registers*/
             ENET_SetMII(ENET, (enet_mii_speed_t)phy_speed, (enet_mii_duplex_t)phy_duplex);
@@ -480,19 +484,16 @@ static void k64f_eth_initialize(uint8_t *mac_addr)
     ENET_GetDefaultConfig(&config);
 
     /* Initialize PHY layer */
-    PHY_Init(ENET, phyAddr, sysClock);
-
-    /* Setup PHY layer */
-    PHY_GetLinkStatus(ENET, phyAddr, &link_currently_up);
-    tr_info("Ethernet cable is %sconnected.", link_currently_up ? "" : "not ");
-    if (link_currently_up) {
-        /* Get link information from PHY (Auto negotiation, in case deafult
-         * config is different from actual link available )  */
-        PHY_GetLinkSpeedDuplex(ENET, phyAddr, &phy_speed, &phy_duplex);
-        /* Change the MII speed and duplex for actual link status. */
-        config.miiSpeed = (enet_mii_speed_t) phy_speed;
-        config.miiDuplex = (enet_mii_duplex_t) phy_duplex;
+    if(Initialize_Enet_PHY(ENET, phyAddr, sysClock)!=kStatus_Success) {
+        tr_error("Couldn't initialize Ethernet PHY layer.");
+        return;
     }
+
+    PHY_GetLinkSpeedDuplex(ENET, phyAddr, &phy_speed, &phy_duplex);
+    /* Change the MII speed and duplex for actual link status. */
+    config.miiSpeed = (enet_mii_speed_t) phy_speed;
+    config.miiDuplex = (enet_mii_duplex_t) phy_duplex;
+
     config.rxMaxFrameLen = ENET_ETH_MAX_FLEN;
     config.macSpecialConfig = kENET_ControlFlowControlEnable;
     config.rxAccelerConfig = kENET_RxAccelMacCheckEnabled;
@@ -599,6 +600,54 @@ static void ethernet_event_callback(ENET_Type *base, enet_handle_t *handle, enet
         default:
             break;
     }
+}
+
+static status_t Initialize_Enet_PHY(ENET_Type *base, uint32_t phyAddr, uint32_t srcClock_Hz)
+{
+    status_t result = kStatus_Success;
+    uint32_t instance = ENET_GetInstance(base);
+
+    /* Set SMI first. */
+    CLOCK_EnableClock(s_enetClock[instance]);
+    ENET_SetSMI(base, srcClock_Hz, false);
+
+    /* Reset PHY. */
+    result = PHY_Write(base, phyAddr, PHY_BASICCONTROL_REG, PHY_BCTL_RESET_MASK);
+    return result;
+}
+
+static status_t AutoNegotiation(ENET_Type *base, uint32_t phyAddr)
+{
+    uint32_t bssReg;
+    status_t result;
+    uint32_t counter = 0xFFFFFFU;
+
+    /* Set the negotiation. */
+    result = PHY_Write(base, phyAddr, PHY_AUTONEG_ADVERTISE_REG,
+                      (PHY_100BASETX_FULLDUPLEX_MASK | PHY_100BASETX_HALFDUPLEX_MASK
+                      | PHY_10BASETX_FULLDUPLEX_MASK | PHY_10BASETX_HALFDUPLEX_MASK
+                      | 0x1U));
+    if (result == kStatus_Success) {
+        result = PHY_Write(base, phyAddr, PHY_BASICCONTROL_REG,
+                (PHY_BCTL_AUTONEG_MASK | PHY_BCTL_RESTART_AUTONEG_MASK));
+        if (result == kStatus_Success) {
+            /* Check auto negotiation complete. */
+            while (counter--) {
+                result = PHY_Read(base, phyAddr, PHY_BASICSTATUS_REG, &bssReg);
+                if (result == kStatus_Success) {
+                    if ((bssReg & PHY_BSTATUS_AUTONEGCOMP_MASK) != 0) {
+                        break;
+                    }
+                }
+
+                if (!counter) {
+                    return kStatus_PHY_AutoNegotiateFail;
+                }
+            }
+        }
+    }
+
+    return result;
 }
 
 #ifdef MBED_CONF_RTOS_PRESENT
