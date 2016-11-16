@@ -4,8 +4,7 @@
              "help": "The amount of static RAM to reserve for nsdynmemlib heap",
              "value": 50000
         },
-		"thread-br": "true",
-        "debug-trace": "false",		
+		"thread-br": "true",        
         "trace-baud-rate": "115200",
         "backhaul-driver": "ETH",
         "backhaul-mac-src": "BOARD",
