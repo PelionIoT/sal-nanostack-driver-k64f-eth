@@ -18,3 +18,8 @@ extern "C" int8_t rf_device_register()
 {
     return rf_phy.rf_register();
 }
+
+extern "C" void rf_read_mac_address(uint8_t *mac)
+{
+    rf_phy.get_mac_address(mac);
+}
