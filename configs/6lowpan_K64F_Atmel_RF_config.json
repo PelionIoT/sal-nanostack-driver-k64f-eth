@@ -55,13 +55,13 @@
    	    "SERIAL_TX": "PTE0",
     	"SERIAL_RX": "PTE1",
     	"SERIAL_CTS": "PTE2",
-    	"SERIAL_RTS": "PTE3"
-    },
-    "target_overrides": {
-        "*": {
-            "target.features_add": ["NANOSTACK", "LOWPAN_BORDER_ROUTER", "COMMON_PAL"],
-            "mbed-trace.enable": 1,
-            "nanostack.configuration": "lowpan_border_router"
-        }
-    }
+		"SERIAL_RTS": "PTE3"
+	},
+	"target_overrides": {
+		"*": {
+			"target.features_add": ["NANOSTACK", "LOWPAN_BORDER_ROUTER", "COMMON_PAL"],
+			"mbed-trace.enable": 1,
+			"nanostack.configuration": "lowpan_border_router"
+		}
+	}
 }
