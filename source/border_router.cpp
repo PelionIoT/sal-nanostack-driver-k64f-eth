@@ -54,7 +54,6 @@ static DigitalOut led1(LED1);
 
 static Ticker led_ticker;
 
-
 static void app_heap_error_handler(heap_fail_t event);
 
 static void toggle_led1()
@@ -135,11 +134,8 @@ void app_start(int, char **)
         /* Setting the MAC Address from UID (A yotta function)
          * Takes UID Mid low and UID low and shuffles them around. */
         mbed_mac_address((char *)mac);
-    } else if (strcmp(mac_src, "CONFIG") == 0) {
-        /* MAC is defined by the user through yotta configuration */
-
+    } else if (strcmp(mac_src, "CONFIG") == 0) {        
         const uint8_t mac48[] = MBED_CONF_APP_BACKHAUL_MAC;
-
         for (uint32_t i = 0; i < sizeof(mac); ++i) {
             mac[i] = mac48[i];
         }
