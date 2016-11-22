@@ -82,11 +82,11 @@ void backhaul_driver_init(void (*backhaul_driver_status_cb)(uint8_t, int8_t))
 
         tr_info("Using SLIP backhaul driver...");
 
-		#ifdef MBED_CONF_APP_SLIP_SERIAL_BAUD_RATE
+#ifdef MBED_CONF_APP_SLIP_SERIAL_BAUD_RATE
         slipdrv_id = pslipmacdriver->Slip_Init(mac, MBED_CONF_APP_SLIP_SERIAL_BAUD_RATE);
-		#else
+#else
 		tr_warning("baud rate for slip not defined");	
-		#endif
+#endif
 
         if (slipdrv_id >= 0) {
             backhaul_driver_status_cb(1, slipdrv_id);
