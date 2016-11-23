@@ -68,7 +68,7 @@ void backhaul_driver_init(void (*backhaul_driver_status_cb)(uint8_t, int8_t))
     driver = STR(MBED_CONF_APP_BACKHAUL_DRIVER);
 
     if (strcmp(driver, "SLIP") == 0) {
-        int8_t slipdrv_id;
+        int8_t slipdrv_id=-1;
 #if defined(MBED_CONF_APP_SLIP_HW_FLOW_CONTROL)
         pslipmacdriver = new SlipMACDriver(SERIAL_TX, SERIAL_RX, SERIAL_RTS, SERIAL_CTS);
 #else
