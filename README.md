@@ -22,7 +22,7 @@ The FRDM-K64F border router application consists of 4 software components as sho
 
 ## Required hardware
 
-* Two FRDM-K64F development boards, one for the border router application and another one for the client application [the 6LoWPAN mbed client application](https://github.com/ARMmbed/mbed-os-example-client). For Thread use this binary -> TBD.
+* Two FRDM-K64F development boards, one for the border router application and another one for the client application [the 6LoWPAN mbed client application](https://github.com/ARMmbed/mbed-os-example-client).
 * Two mbed 6LoWPAN shields (AT86RF212B/[AT86RF233](http://uk.rs-online.com/web/p/radio-frequency-development-kits/9054107/)) for wireless 6LoWPAN mesh connectivity.
  * Alternatively you can use [NXP MCR20A](http://www.nxp.com/products/software-and-tools/hardware-development-tools/freedom-development-boards/freedom-development-board-for-mcr20a-wireless-transceiver:FRDM-CR20A) shields.
  * See [Switching the RF shield](#switching-the-rf-shield)
@@ -74,27 +74,27 @@ The FRDM-K64F border router application can be connected to a backhaul network. 
 
 You can select your preferred option through the configuration file (field *backhaul-driver* in the *config* section). Value `SLIP` includes the SLIP driver, while the value `ETH` compiles the FRDM-K64F border router application with Ethernet backhaul support. For the thread BR there are two separate configuration files for `SLIP` and `ETH`. You can define the MAC address on the backhaul interface manually (field *backhaul-mac-src* value `CONFIG`). Alternatively, you can use the MAC address provided by the development board (field *backhaul-mac-src* value `BOARD`). By default, the backhaul driver is set to be `ETH` and the MAC address source is `BOARD`. 
 
-You can also set the bakchaul bootstrap mode (field *backhaul-dynamic-bootstrap*). By default, the bootstrap mode is set true, which means autonomous mode. With the autonomous mode, the border router learns the prefix information automatically from an IPv6 gateway in the ethernet/SLIP segment. When parameter is set to false, it enables you to set up  a manual configuration of backhaul-prefix and default-route.
+You can also set the backhaul bootstrap mode (field *backhaul-dynamic-bootstrap*). By default, the bootstrap mode is set true, which means autonomous mode. With the autonomous mode, the border router learns the prefix information automatically from an IPv6 gateway in the ethernet/SLIP segment. When parameter is set to false, it enables you to set up  a manual configuration of backhaul-prefix and default-route.
 
 If you use static bootstrap mode, you need to configure a default route on the backhaul interface to properly forward packets between the backhaul and the 6LoWPAN mesh network. In addition to this, you need to set a backhaul prefix. Static mode creates a site-local IPv6 network from where packets cannot be routed outside.
 
  For more details on how to set the backhaul prefix and default route, refer to the [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router) documentation.
 
-In the 6lowpan configuration when using the autonomous mode, you can set the `prefix-from-backhaul` option in the to `true` to use the same bakchaul prefix on the mesh network side as well. This allows for the mesh nodes to be directly connectable from the outside of the mesh network. In the Thread network it is enough that `backhaul-dynamic-bootstrap` is set to true.
+In the 6lowpan configuration when using the autonomous mode, you can set the `prefix-from-backhaul` option in the to `true` to use the same backhaul prefix on the mesh network side as well. This allows for the mesh nodes to be directly connectable from the outside of the mesh network. In the Thread network it is enough that `backhaul-dynamic-bootstrap` is set to true.
 
 #### Thread configuration
 
-There are various parameters for Thread network configuration. the `thread-br` paramter must be set to true, in order to build a Thread border router. All devices must share the same network configuration parameters. Special care must be taken when defining security related parameters. The below configuration is only an example, do not use it for a product.
+There are various parameters for Thread network configuration. the `thread-br` paramter must be set to true, in order to build a Thread border router. All devices must share the same network configuration parameters. Special care must be taken when defining security related parameters. The below configuration is only an example, do not use them for a product, neither expose them like here.
 
 ```
 	"thread-br": "true",   
 	"pan-id": "0x0700",
-	"extended-pan-id": "{0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7}",
-	"mesh-local-ula-prefix": "{0xfd, 0x0, 0x0d, 0xb8, 0x0, 0x0, 0x0, 0x0}",
-	"network-name": "\"Arm Powered Core\"",
-	"pskd": "\"abcdefghijklmno\"",		
-	"pskc": "{0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf}",
-	"thread-master-key": "{0x10, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}"
+    "extended-pan-id": "{0xf1, 0xb5, 0xa1, 0xb2,0xc4, 0xd5, 0xa1, 0xbd }",
+    "mesh-local-ula-prefix": "{0xfd, 0x0, 0x0d, 0xb8, 0x0, 0x0, 0x0, 0x0}",
+    "network-name": "\"Thread Network\"",
+    "pskd": "\"abcdefghijklmno\"",
+    "pskc": "{0xc8, 0xa6, 0x2e, 0xae, 0xf3, 0x68, 0xf3, 0x46, 0xa9, 0x9e, 0x57, 0x85, 0x98, 0x9d, 0x1c, 0xd0}",
+    "thread-master-key": "{0x10, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}"
 
 ```
 
@@ -147,7 +147,7 @@ After changing the radio, you need to recompile the application.
 5. Generate mbed application root: `mbed new .`
 6. Build: `mbed compile -m K64F -t GCC_ARM`
 
-The binary will be generated into `BUILD/K64F/GCC_ARM/k64f-border-router-private.bin`
+The binary will be generated into `BUILD/K64F/GCC_ARM/k64f-border-router.bin`
 
 ## Running the border router application
 
