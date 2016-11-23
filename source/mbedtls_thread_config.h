@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  */
- 
+
 #ifndef MBEDTLS_THREAD_CONFIG_H_
 #define MBEDTLS_THREAD_CONFIG_H_
 

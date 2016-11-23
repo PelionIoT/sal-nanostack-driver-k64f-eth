@@ -68,7 +68,7 @@ void backhaul_driver_init(void (*backhaul_driver_status_cb)(uint8_t, int8_t))
     driver = STR(MBED_CONF_APP_BACKHAUL_DRIVER);
 
     if (strcmp(driver, "SLIP") == 0) {
-        int8_t slipdrv_id=-1;
+        int8_t slipdrv_id = -1;
 #if defined(MBED_CONF_APP_SLIP_HW_FLOW_CONTROL)
         pslipmacdriver = new SlipMACDriver(SERIAL_TX, SERIAL_RX, SERIAL_RTS, SERIAL_CTS);
 #else
@@ -85,7 +85,7 @@ void backhaul_driver_init(void (*backhaul_driver_status_cb)(uint8_t, int8_t))
 #ifdef MBED_CONF_APP_SLIP_SERIAL_BAUD_RATE
         slipdrv_id = pslipmacdriver->Slip_Init(mac, MBED_CONF_APP_SLIP_SERIAL_BAUD_RATE);
 #else
-		tr_warning("baud rate for slip not defined");	
+        tr_warning("baud rate for slip not defined");
 #endif
 
         if (slipdrv_id >= 0) {
@@ -125,7 +125,7 @@ void app_start(int, char **)
         /* Setting the MAC Address from UID.
          * Takes UID Mid low and UID low and shuffles them around. */
         mbed_mac_address((char *)mac);
-    } else if (strcmp(mac_src, "CONFIG") == 0) {        
+    } else if (strcmp(mac_src, "CONFIG") == 0) {
         const uint8_t mac48[] = MBED_CONF_APP_BACKHAUL_MAC;
         for (uint32_t i = 0; i < sizeof(mac); ++i) {
             mac[i] = mac48[i];

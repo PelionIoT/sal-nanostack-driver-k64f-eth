@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  */
- 
+
 #include "rf_wrapper.h"
 
 // Must be defined for next preprocessor tests to work
