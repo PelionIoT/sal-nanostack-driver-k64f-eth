@@ -1,8 +1,7 @@
 # FRDM-K64F border router
 
-This document describes how to configure, compile, and run a FRDM-K64F 6LoWPAN border router application on a [FRDM-K64F development board](https://www.mbed.com/en/development/hardware/boards/nxp/frdm_k64f/). 
+This document describes how to configure, compile, and run a FRDM-K64F 6LoWPAN border router application on a [FRDM-K64F development board](https://www.mbed.com/en/development/hardware/boards/nxp/frdm_k64f/). The border router can be configured to a 6loWPAN or Thread mode. 
 
-<span class="notes">**Note:** This Border Router does not support Thread. For non-RTOS (yotta build), please follow onstructions in [Building with yotta](Building_with_yotta.md).</span>
 
 ## Introduction
 
@@ -16,14 +15,14 @@ The FRDM-K64F border router application consists of 4 software components as sho
 
 ![](images/frdm_k64f_br_components.png)
 
-* [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router) is the core IPv6 gateway logic and provides the mesh network functionality.
+* [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router) is the core IPv6 gateway logic and provides the mesh network functionality. It can be configured to the 6LoWPAN or Thread mode.
 * [Atmel RF driver](https://github.com/ARMmbed/atmel-rf-driver) is the driver for the Atmel AT86RF2xxx wireless 6LoWPAN shields.
 * [Ethernet driver](https://github.com/ARMmbed/sal-nanostack-driver-k64f-eth) is the Ethernet driver for the FRDM-K64F development board.
 * [SLIP driver](https://github.com/ARMmbed/sal-stack-nanostack-slip) is a generic Serial Line Internet Protocol version 6 (SLIPv6) driver for mbedOS boards.
 
 ## Required hardware
 
-* Two FRDM-K64F development boards, one for the border router application and another one for [the 6LoWPAN mbed client application](https://github.com/ARMmbed/mbed-os-example-client).
+* Two FRDM-K64F development boards, one for the border router application and another one for the client application [the 6LoWPAN mbed client application](https://github.com/ARMmbed/mbed-os-example-client). For Thread use this binary -> TBD.
 * Two mbed 6LoWPAN shields (AT86RF212B/[AT86RF233](http://uk.rs-online.com/web/p/radio-frequency-development-kits/9054107/)) for wireless 6LoWPAN mesh connectivity.
  * Alternatively you can use [NXP MCR20A](http://www.nxp.com/products/software-and-tools/hardware-development-tools/freedom-development-boards/freedom-development-board-for-mcr20a-wireless-transceiver:FRDM-CR20A) shields.
  * See [Switching the RF shield](#switching-the-rf-shield)
@@ -85,7 +84,7 @@ In the 6lowpan configuration when using the autonomous mode, you can set the `pr
 
 #### Thread configuration
 
-There are various parameters for Thread network configuration. All devices must share the same network configuration parameters. Special care must be taken when defining security related parameters. The below configuration is only an example, do not use it for a product.
+There are various parameters for Thread network configuration. the `thread-br` paramter must be set to true, in order to build a Thread border router. All devices must share the same network configuration parameters. Special care must be taken when defining security related parameters. The below configuration is only an example, do not use it for a product.
 
 ```
 	"thread-br": "true",   
@@ -102,7 +101,7 @@ There are various parameters for Thread network configuration. All devices must 
 ####Note on the SLIP backhaul driver
 
 You need to use the UART1 serial line of the K64F board with the SLIP driver. See the *pins* section in the project's yotta configuration. To use a different UART line, replace the *SERIAL_TX* and *SERIAL_RX* values with correct TX/RX pin names. 
-If you wish to use hardware flow control, set the configuration field `slip_hw_flow_control``to `true`. By default, it is set to `false`. Before using hardware flow control, make sure that the other end of your SLIP interface can handle flow control.
+If you wish to use hardware flow control, set the configuration field `slip_hw_flow_control``to true. By default, it is set to false. Before using hardware flow control, make sure that the other end of your SLIP interface can handle flow control.
 
 For the pin names of your desired UART line, refer to the [FRDM-K64F documentation](https://developer.mbed.org/platforms/FRDM-K64F/).
 
@@ -143,12 +142,12 @@ After changing the radio, you need to recompile the application.
 
 1. Install [mbed-cli](https://github.com/ARMmbed/mbed-cli).
 2. Clone the repository: `git clone git@github.com:ARMmbed/k64f-border-router.git`
-3. Modify the `mbed_app.json` file to reflect to your network setup.
+3. Modify the `mbed_app.json` file to reflect to your network setup or use ready made configuration under the configs directory.
 4. Deploy required libraries: `mbed deploy`
 5. Generate mbed application root: `mbed new .`
 6. Build: `mbed compile -m K64F -t GCC_ARM`
 
-The binary will be generated into `.build/K64F/GCC_ARM/thread-testapp-private.bin`
+The binary will be generated into `BUILD/K64F/GCC_ARM/k64f-border-router-private.bin`
 
 ## Running the border router application
 

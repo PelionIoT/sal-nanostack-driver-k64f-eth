@@ -122,7 +122,7 @@ void app_start(int, char **)
     mac_src = STR(MBED_CONF_APP_BACKHAUL_MAC_SRC);
 
     if (strcmp(mac_src, "BOARD") == 0) {
-        /* Setting the MAC Address from UID (A yotta function)
+        /* Setting the MAC Address from UID.
          * Takes UID Mid low and UID low and shuffles them around. */
         mbed_mac_address((char *)mac);
     } else if (strcmp(mac_src, "CONFIG") == 0) {        
