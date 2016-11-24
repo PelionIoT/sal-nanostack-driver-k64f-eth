@@ -141,16 +141,16 @@ After changing the radio, you need to recompile the application.
 ## Build instructions
 
 1. Install [mbed-cli](https://github.com/ARMmbed/mbed-cli).
-2. Clone the repository: `git clone git@github.com:ARMmbed/k64f-border-router.git`
+2. Clone the repository: `git clone git@github.com:ARMmbed/k64f-border-router-private.git`
 3. Modify the `mbed_app.json` file to reflect to your network setup or use ready made configuration under the configs directory.
 4. Deploy required libraries: `mbed deploy`
 6. Build: `mbed compile -m K64F -t GCC_ARM`
 
-The binary will be generated into `BUILD/K64F/GCC_ARM/k64f-border-router.bin`
+The binary will be generated into `BUILD/K64F/GCC_ARM/k64f-border-router-private.bin`
 
 ## Running the border router application
 
-1. Find the  binary file `k64f-border-router.bin` in the folder `.build/K64F/GCC_ARM/`.
+1. Find the  binary file `k64f-border-router-private.bin` in the folder `.build/K64F/GCC_ARM/`.
 2. Copy the binary to the USB mass storage root of the FRDM-K64F development board. It is automatically flashed to the target MCU. When the flashing is complete, the board restarts itself. Press the **Reset** button of the development board if it does not restart automatically.
 3. The program begins execution.
 4. Open the [serial connection](#serial-connection-settings), for example PuTTY.
