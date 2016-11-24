@@ -49,7 +49,7 @@ The FRDM-K64F border router application consists of 4 software components as sho
 
 ## Configuration
 
-To configure the FRDM-K64F border router you need to make changes in the application configuration file (.json), which can be found in the configs directory. For the complete list of configuration options, refer to the [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router) documentation.
+To configure the FRDM-K64F border router you need to make changes in the application configuration file (.json). There are more example configurations in the configs directory. The `mbed_app.json` in the root directory is the default configuration, which is for 6LoWPAN. For the complete list of configuration options, refer to the [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router) documentation.
 
 ```json
 {
