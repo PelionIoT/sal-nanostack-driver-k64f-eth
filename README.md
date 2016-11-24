@@ -1,8 +1,7 @@
 # FRDM-K64F border router
 
-This document describes how to configure, compile, and run a FRDM-K64F 6LoWPAN border router application on a [FRDM-K64F development board](https://www.mbed.com/en/development/hardware/boards/nxp/frdm_k64f/). 
+This document describes how to configure, compile, and run a FRDM-K64F 6LoWPAN border router application on a [FRDM-K64F development board](https://www.mbed.com/en/development/hardware/boards/nxp/frdm_k64f/). The border router can be configured to a 6loWPAN or Thread mode. 
 
-<span class="notes">**Note:** This Border Router does not support Thread. For non-RTOS (yotta build), please follow onstructions in [Building with yotta](Building_with_yotta.md).</span>
 
 ## Introduction
 
@@ -16,14 +15,14 @@ The FRDM-K64F border router application consists of 4 software components as sho
 
 ![](images/frdm_k64f_br_components.png)
 
-* [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router) is the core IPv6 gateway logic and provides the mesh network functionality.
+* [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router) is the core IPv6 gateway logic and provides the mesh network functionality. It can be configured to the 6LoWPAN or Thread mode.
 * [Atmel RF driver](https://github.com/ARMmbed/atmel-rf-driver) is the driver for the Atmel AT86RF2xxx wireless 6LoWPAN shields.
 * [Ethernet driver](https://github.com/ARMmbed/sal-nanostack-driver-k64f-eth) is the Ethernet driver for the FRDM-K64F development board.
 * [SLIP driver](https://github.com/ARMmbed/sal-stack-nanostack-slip) is a generic Serial Line Internet Protocol version 6 (SLIPv6) driver for mbedOS boards.
 
 ## Required hardware
 
-* Two FRDM-K64F development boards, one for the border router application and another one for [the 6LoWPAN mbed client application](https://github.com/ARMmbed/mbed-os-example-client).
+* Two FRDM-K64F development boards, one for the border router application and another one for the client application [the 6LoWPAN mbed client application](https://github.com/ARMmbed/mbed-os-example-client).
 * Two mbed 6LoWPAN shields (AT86RF212B/[AT86RF233](http://uk.rs-online.com/web/p/radio-frequency-development-kits/9054107/)) for wireless 6LoWPAN mesh connectivity.
  * Alternatively you can use [NXP MCR20A](http://www.nxp.com/products/software-and-tools/hardware-development-tools/freedom-development-boards/freedom-development-board-for-mcr20a-wireless-transceiver:FRDM-CR20A) shields.
  * See [Switching the RF shield](#switching-the-rf-shield)
@@ -50,7 +49,7 @@ The FRDM-K64F border router application consists of 4 software components as sho
 
 ## Configuration
 
-To configure the FRDM-K64F border router you need to make changes in the application configuration file `mbed_app.json` in the root directory of the source tree. For the complete list of configuration options, refer to the [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router) documentation.
+To configure the FRDM-K64F border router you need to make changes in the application configuration file (.json), which can be found in the configs directory. For the complete list of configuration options, refer to the [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router) documentation.
 
 ```json
 {
@@ -73,24 +72,40 @@ To configure the FRDM-K64F border router you need to make changes in the applica
 
 The FRDM-K64F border router application can be connected to a backhaul network. This enables you to connect the devices in a 6LoWPAN mesh network to the internet or a private LAN. Currently, the application supports SLIP (IPv6 encapsulation over a serial line) and Ethernet backhaul connectivity. 
 
-You can select your preferred option through the `mbed_app.json` file (field *backhaul-driver* in the *config* section). Value `SLIP` includes the SLIP driver, while the value `ETH` compiles the FRDM-K64F border router application with Ethernet backhaul support. You can define the MAC address on the backhaul interface manually (field *backhaul-mac-src* value `CONFIG`). Alternatively, you can use the MAC address provided by the development board (field *backhaul-mac-src* value `BOARD`). By default, the backhaul driver is set to be `ETH` and the MAC address source is `BOARD`. 
+You can select your preferred option through the configuration file (field *backhaul-driver* in the *config* section). Value `SLIP` includes the SLIP driver, while the value `ETH` compiles the FRDM-K64F border router application with Ethernet backhaul support. For the thread BR there are two separate configuration files for `SLIP` and `ETH`. You can define the MAC address on the backhaul interface manually (field *backhaul-mac-src* value `CONFIG`). Alternatively, you can use the MAC address provided by the development board (field *backhaul-mac-src* value `BOARD`). By default, the backhaul driver is set to be `ETH` and the MAC address source is `BOARD`. 
 
-You can also set the bakchaul bootstrap mode (field *backhaul-bootstrap-mode*). By default, the bootstrap mode is set to be `NET_IPV6_BOOTSTRAP_AUTONOMOUS`. With autonomous mode, the border router learns the prefix information automatically from an IPv6 gateway in the ethernet/SLIP segment. Optionally, you can set the bootsrap mode to be `NET_IPV6_BOOTSTRAP_STATIC` which enables you to set up  a manual configuration of backhaul-prefix and default-route.
+You can also set the backhaul bootstrap mode (field *backhaul-dynamic-bootstrap*). By default, the bootstrap mode is set true, which means autonomous mode. With the autonomous mode, the border router learns the prefix information automatically from an IPv6 gateway in the ethernet/SLIP segment. When parameter is set to false, it enables you to set up  a manual configuration of backhaul-prefix and default-route.
 
 If you use static bootstrap mode, you need to configure a default route on the backhaul interface to properly forward packets between the backhaul and the 6LoWPAN mesh network. In addition to this, you need to set a backhaul prefix. Static mode creates a site-local IPv6 network from where packets cannot be routed outside.
 
  For more details on how to set the backhaul prefix and default route, refer to the [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router) documentation.
 
-When using the autonomous mode, you can set the `prefix-from-backhaul` option in the `mbed_app.json`file to `true` to use the same bakchaul prefix on the mesh network side as well. This allows for the mesh nodes to be directly connectable from the outside of the mesh network.
+In the 6lowpan configuration when using the autonomous mode, you can set the `prefix-from-backhaul` option in the to `true` to use the same backhaul prefix on the mesh network side as well. This allows for the mesh nodes to be directly connectable from the outside of the mesh network. In the Thread network it is enough that `backhaul-dynamic-bootstrap` is set to true.
+
+#### Thread configuration
+
+There are various parameters for Thread network configuration. the `thread-br` paramter must be set to true, in order to build a Thread border router. All devices must share the same network configuration parameters. Special care must be taken when defining security related parameters. The below configuration is only an example, do not use them for a product, neither expose them like here.
+
+```
+	"thread-br": "true",   
+	"pan-id": "0x0700",
+    "extended-pan-id": "{0xf1, 0xb5, 0xa1, 0xb2,0xc4, 0xd5, 0xa1, 0xbd }",
+    "mesh-local-prefix": "{0xfd, 0x0, 0x0d, 0xb8, 0x0, 0x0, 0x0, 0x0}",
+    "network-name": "\"Thread Network\"",
+    "pskd": "\"abcdefghijklmno\"",
+    "pskc": "{0xc8, 0xa6, 0x2e, 0xae, 0xf3, 0x68, 0xf3, 0x46, 0xa9, 0x9e, 0x57, 0x85, 0x98, 0x9d, 0x1c, 0xd0}",
+    "thread-master-key": "{0x10, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}"
+
+```
 
 ####Note on the SLIP backhaul driver
 
 You need to use the UART1 serial line of the K64F board with the SLIP driver. See the *pins* section in the project's yotta configuration. To use a different UART line, replace the *SERIAL_TX* and *SERIAL_RX* values with correct TX/RX pin names. 
-If you wish to use hardware flow control, set the configuration field `slip_hw_flow_control``to `true`. By default, it is set to `false`. Before using hardware flow control, make sure that the other end of your SLIP interface can handle flow control.
+If you wish to use hardware flow control, set the configuration field `slip_hw_flow_control``to true. By default, it is set to false. Before using hardware flow control, make sure that the other end of your SLIP interface can handle flow control.
 
 For the pin names of your desired UART line, refer to the [FRDM-K64F documentation](https://developer.mbed.org/platforms/FRDM-K64F/).
 
-Example yotta configuration for the SLIP driver:
+Example configuration for the SLIP driver:
 
 ```json
   "config" : {
@@ -103,7 +118,7 @@ Example yotta configuration for the SLIP driver:
 
 ### Switching the RF shield
 
-By default the application uses Atmel AT86RF233/212B RF driver. You can alternatively use FRDM-MCR20A shield also. Used RF driver is set in the `mbed_app.json` file.
+By default the application uses Atmel AT86RF233/212B RF driver. You can alternatively use FRDM-MCR20A shield also. Used RF driver is set in the `json` file.
 
 To use the Atmel radio, use following:
 ```
@@ -127,12 +142,11 @@ After changing the radio, you need to recompile the application.
 
 1. Install [mbed-cli](https://github.com/ARMmbed/mbed-cli).
 2. Clone the repository: `git clone git@github.com:ARMmbed/k64f-border-router.git`
-3. Modify the `mbed_app.json` file to reflect to your network setup.
+3. Modify the `mbed_app.json` file to reflect to your network setup or use ready made configuration under the configs directory.
 4. Deploy required libraries: `mbed deploy`
-5. Generate mbed application root: `mbed new .`
 6. Build: `mbed compile -m K64F -t GCC_ARM`
 
-The binary will be generated into `.build/K64F/GCC_ARM/thread-testapp-private.bin`
+The binary will be generated into `BUILD/K64F/GCC_ARM/k64f-border-router.bin`
 
 ## Running the border router application
 

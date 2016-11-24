@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2016 ARM Limited. All rights reserved.
+ */
+
 #include "rf_wrapper.h"
 
 // Must be defined for next preprocessor tests to work
@@ -17,4 +21,9 @@ NanostackRfPhyMcr20a rf_phy(MCR20A_SPI_MOSI, MCR20A_SPI_MISO, MCR20A_SPI_SCLK, M
 extern "C" int8_t rf_device_register()
 {
     return rf_phy.rf_register();
+}
+
+extern "C" void rf_read_mac_address(uint8_t *mac)
+{
+    rf_phy.get_mac_address(mac);
 }

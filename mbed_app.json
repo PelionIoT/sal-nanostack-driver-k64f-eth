@@ -35,7 +35,7 @@
 		"rf-channel-page": 0,
 		"rf-channel-mask": "0x07fff800",
 		"short-mac-address": "0xface",
-		"backhaul-bootstrap-mode": "NET_IPV6_BOOTSTRAP_AUTONOMOUS",
+		"backhaul-dynamic-bootstrap": true,
 		"backhaul-prefix": "fd00:db8:ff1::",
 		"backhaul-default-route": "::/0",
 		"backhaul-next-hop": "fe80::1",
@@ -55,13 +55,13 @@
    	    "SERIAL_TX": "PTE0",
     	"SERIAL_RX": "PTE1",
     	"SERIAL_CTS": "PTE2",
-    	"SERIAL_RTS": "PTE3"
-    },
-    "target_overrides": {
-        "*": {
-            "target.features_add": ["NANOSTACK", "LOWPAN_BORDER_ROUTER", "COMMON_PAL"],
-            "mbed-trace.enable": 1,
-            "nanostack.configuration": "lowpan_border_router"
-        }
-    }
+		"SERIAL_RTS": "PTE3"
+	},
+	"target_overrides": {
+		"*": {
+			"target.features_add": ["NANOSTACK", "LOWPAN_BORDER_ROUTER", "COMMON_PAL"],
+			"mbed-trace.enable": 1,
+			"nanostack.configuration": "lowpan_border_router"
+		}
+	}
 }
