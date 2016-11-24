@@ -90,7 +90,7 @@ There are various parameters for Thread network configuration. the `thread-br` p
 	"thread-br": "true",   
 	"pan-id": "0x0700",
     "extended-pan-id": "{0xf1, 0xb5, 0xa1, 0xb2,0xc4, 0xd5, 0xa1, 0xbd }",
-    "mesh-local-ula-prefix": "{0xfd, 0x0, 0x0d, 0xb8, 0x0, 0x0, 0x0, 0x0}",
+    "mesh-local-prefix": "{0xfd, 0x0, 0x0d, 0xb8, 0x0, 0x0, 0x0, 0x0}",
     "network-name": "\"Thread Network\"",
     "pskd": "\"abcdefghijklmno\"",
     "pskc": "{0xc8, 0xa6, 0x2e, 0xae, 0xf3, 0x68, 0xf3, 0x46, 0xa9, 0x9e, 0x57, 0x85, 0x98, 0x9d, 0x1c, 0xd0}",
@@ -144,7 +144,6 @@ After changing the radio, you need to recompile the application.
 2. Clone the repository: `git clone git@github.com:ARMmbed/k64f-border-router.git`
 3. Modify the `mbed_app.json` file to reflect to your network setup or use ready made configuration under the configs directory.
 4. Deploy required libraries: `mbed deploy`
-5. Generate mbed application root: `mbed new .`
 6. Build: `mbed compile -m K64F -t GCC_ARM`
 
 The binary will be generated into `BUILD/K64F/GCC_ARM/k64f-border-router.bin`
