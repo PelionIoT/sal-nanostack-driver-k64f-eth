@@ -167,33 +167,66 @@ Serial connection settings for the Thread test application are as follows:
 
 If there is no input from the serial terminal, press the **Reset** button of the development board.
 
-In the PuTTY main screen, save the session and click **Open**. This opens a console window showing debug messages from the application. If the console screen is blank, you may need to press the **Reset** button of the board to see the debug information. The serial output from the border router look something like this in the console:
+In the PuTTY main screen, save the session and click **Open**. This opens a console window showing debug messages from the application. If the console screen is blank, you may need to press the **Reset** button of the board to see the debug information. The serial output from the 6LoWPAN border router look something like this in the console:
 
 ```
 [INFO][app ]: Starting K64F border router...
-[INFO][app ]: Using SLIP backhaul driver...
-[INFO][app ]: Starting K64F border router...
-[INFO][app ]: Using SLIP backhaul driver...
-[INFO][addr]: Tentative Address added to IF 1: fe80::441:e2ff:fe12:faad
-[INFO][addr]: DAD passed on IF 1: fe80::441:e2ff:fe12:faad
-[INFO][addr]: Tentative Address added to IF 1: fd00:db8:ff1:0:441:e2ff:fe12:faad
-[INFO][addr]: DAD passed on IF 1: fd00:db8:ff1:0:441:e2ff:fe12:faad
-[INFO][brro]: Backhaul bootstrap ready, IPv6 = fd00:db8:ff1:0:441:e2ff:fe12:faad
+[INFO][brro]: NET_IPV6_BOOTSTRAP_AUTONOMOUS
+[INFO][app ]: Using ETH backhaul driver...
+[INFO][Eth ]: Ethernet cable is connected.
+[INFO][addr]: Tentative Address added to IF 1: fe80::ac41:dcff:fe37:72c4
+[INFO][addr]: DAD passed on IF 1: fe80::ac41:dcff:fe37:72c4
+[INFO][addr]: Tentative Address added to IF 1: 2001:999:21:9ce:ac41:dcff:fe37:72c4
+[INFO][addr]: DAD passed on IF 1: 2001:999:21:9ce:ac41:dcff:fe37:72c4
+[INFO][brro]: Backhaul bootstrap ready, IPv6 = 2001:999:21:9ce:ac41:dcff:fe37:72c4
 [INFO][brro]: Backhaul interface addresses:
-[INFO][brro]:    [0] fe80::441:e2ff:fe12:faad
-[INFO][brro]:    [1] fd00:db8:ff1:0:441:e2ff:fe12:faad
+[INFO][brro]:    [0] fe80::ac41:dcff:fe37:72c4
+[INFO][brro]:    [1] 2001:999:21:9ce:ac41:dcff:fe37:72c4
 [INFO][addr]: Address added to IF 0: fe80::ff:fe00:face
 [INFO][br  ]: BR nwk base ready for start
-[INFO][br  ]: Refresh xts
+[INFO][br  ]: Refresh Contexts
 [INFO][br  ]: Refresh Prefixs
-[INFO][addr]: Address added to IF 0: fd00:db8:ff1::ff:fe00:face
-[INFO][addr]: Address added to IF 0: fe80::fec2:3d00:3:3503
-[INFO][brro]: RF bootstrap ready, IPv6 = fd00:db8:ff1::ff:fe00:face
+[INFO][addr]: Address added to IF 0: 2001:999:21:9ce:0:ff:fe00:face
+[INFO][addr]: Address added to IF 0: fe80::fec2:3d00:4:a0cd
+[INFO][brro]: RF bootstrap ready, IPv6 = 2001:999:21:9ce:0:ff:fe00:face
 [INFO][brro]: RF interface addresses:
 [INFO][brro]:    [0] fe80::ff:fe00:face
-[INFO][brro]:    [1] fe80::fec2:3d00:3:3503
-[INFO][brro]:    [2] fd00:db8:ff1::ff:fe00:face
+[INFO][brro]:    [1] fe80::fec2:3d00:4:a0cd
+[INFO][brro]:    [2] 2001:999:21:9ce:0:ff:fe00:face
 [INFO][brro]: 6LoWPAN Border Router Bootstrap Complete.
 
 ```
 
+And from the Thread border router
+
+```
+
+[INFO][app ]: Starting K64F border router...
+[DBG ][evlp]: event_loop_thread
+[INFO][app ]: Using ETH backhaul driver...
+[INFO][Eth ]: Ethernet cable is connected.
+[DBG ][brro]: Backhaul driver ID: 0
+[INFO][brro]: NET_IPV6_BOOTSTRAP_AUTONOMOUS
+[INFO][brro]: mesh0 up
+[DBG ][brro]: Create Mesh Interface
+[INFO][brro]: network.mesh.net_rf_id: 0
+[INFO][brro]: thread_interface_up
+[DBG ][ThSA]: service init interface 0, port 61631, options 0
+[DBG ][ThSA]: service tasklet init
+
+coap messages......
+...................
+
+[INFO][brro]: mesh0 bootstrap ongoing..
+[DBG ][brro]: backhaul_interface_up: 0
+[DBG ][brro]: Backhaul interface ID: 1
+[DBG ][brro]: Backhaul bootstrap started
+[DBG ][ThSA]: service tasklet initialised
+[INFO][brro]: BR interface_id 1.
+[INFO][brro]: Ethernet (eth0) bootstrap ready. IP: 2001:999:21:9ce:a155:6b95:8384:f121
+[DBG ][ThBrApp]: Eth0 connected
+[DBG ][ThBrApp]: mesh0 is down
+[INFO][brro]: Bootstrap ready
+[DBG ][ThBrApp]: mesh0 connected
+
+```
