@@ -85,7 +85,7 @@ In the 6LoWPAN configuration when using the autonomous mode, you can set the `pr
 
 #### Thread configuration
 
-There are various parameters for the Thread network configuration. The `thread-br` parameter must be set to true in order to build a Thread border router. All devices must share the same network configuration parameters. Special care must be taken when defining security related parameters. The below configuration is an example for testing purposes only; do not use them for production neither expose them.
+There are various parameters for the Thread network configuration. The `thread-br` parameter must be set to true in order to build a Thread border router. All devices must share the same network configuration parameters, if out of band commissioning is used. Special care must be taken when defining security related parameters. The below configuration is an example for testing purposes only; do not use them for production neither expose them.
 
 ```
     "thread-br": "true",   
@@ -145,13 +145,13 @@ After changing the radio shield, you need to recompile the application.
 2. Clone the repository: `git clone git@github.com:ARMmbed/k64f-border-router-private.git`
 3. Modify the `mbed_app.json` file to reflect to your network setup or use the ready made configuration under the configs directory.
 4. Deploy required libraries: `mbed deploy`
-6. Build: `mbed compile -m K64F -t GCC_ARM`
+6. Build: `mbed compile -m K64F -t GCC_ARM` --app-config configs/xxx.json
 
 The binary will be generated into `BUILD/K64F/GCC_ARM/k64f-border-router-private.bin`
 
 ## Running the border router application
 
-1. Find the  binary file `k64f-border-router-private.bin` in the folder `.build/K64F/GCC_ARM/`.
+1. Find the  binary file `k64f-border-router-private.bin` in the folder `BUILD/K64F/GCC_ARM/`.
 2. Copy the binary to the USB mass storage root of the FRDM-K64F development board. It is automatically flashed to the target MCU. When the flashing is complete, the board restarts itself. Press the **Reset** button of the development board if it does not restart automatically.
 3. The program begins execution.
 4. Open the [serial connection](#serial-connection-settings), for example PuTTY.
