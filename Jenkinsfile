@@ -9,17 +9,28 @@ def toolchains = [
   GCC_ARM: "arm-none-eabi-gcc",
   IAR: "iar_arm"
   ]
+
+// Configurations
+def configurations = [
+  LOWPAN: "6lowpan_K64F_Atmel_RF_config.json",
+  THREAD: "Thread_K64F_Atmel_RF_config.json",
+  THREAD_SLIP: "Thread_SLIP_K64F_Atmel_RF_config.json"
+  ]
   
 def stepsForParallel = [:]
 
 // Jenkins pipeline does not support map.each, we need to use oldschool for loop
 for (int i = 0; i < targets.size(); i++) {
   for(int j = 0; j < toolchains.size(); j++) {
-    def target = targets.get(i)
-    def toolchain = toolchains.keySet().asList().get(j)
-    def compilerLabel = toolchains.get(toolchain)
-    def stepName = "${target} ${toolchain}"
-    stepsForParallel[stepName] = buildStep(target, compilerLabel, toolchain)
+    for(int k = 0; k < configurations.size(); k++) {
+      def target = targets.get(i)
+      def toolchain = toolchains.keySet().asList().get(j)
+      def compilerLabel = toolchains.get(toolchain)
+      def configurationLabel = configurations.keySet().asList().get(k)
+      def configurationFile = configurations.get(configurationLabel)
+      def stepName = "${target} ${configurationLabel} ${toolchain}"
+      stepsForParallel[stepName] = buildStep(target, compilerLabel, configurationFile, configurationLabel, toolchain)
+    }
   }
 }
 
@@ -27,26 +38,23 @@ timestamps {
   parallel stepsForParallel
 }
 
-def buildStep(target, compilerLabel, toolchain) {
+def buildStep(target, compilerLabel, configurationFile, configurationLabel, toolchain) {
   return {
-    stage ("${target}_${compilerLabel}") {
+    stage ("${target}_${compilerLabel}_${configurationLabel}") {
       node ("${compilerLabel}") {
         deleteDir()
-        dir("k64f-border-router") {
+        dir("k64f-border-router-private") {
           checkout scm
 
-          // Update target features to match newest mbed-os
-          execute("sed -i 's/\"IPV6\", \"COMMON_PAL\"/\"NANOSTACK\", \"LOWPAN_BORDER_ROUTER\", \"COMMON_PAL\"/' mbed_app.json")
-  
           execute("mbed deploy --protocol ssh")
-          //Checkout mbed-os master
+          //Checkout mbed-os to latest release
           dir("mbed-os") {
-            execute("git fetch origin master")
+            execute("git fetch origin latest")
             execute("git checkout FETCH_HEAD")
           }
-          execute("mbed compile --build out/${target}_${compilerLabel}/ -m ${target} -t ${toolchain} -c")
+          execute("mbed compile --build out/${target}_${configurationLabel}_${compilerLabel}/ -m ${target} -t ${toolchain} --app-config ./configs/${configurationFile} -c")
         }
-        archive '**/k64f-border-router.bin'
+        archive '**/k64f-border-router-private.bin'
       }
     }
   }
