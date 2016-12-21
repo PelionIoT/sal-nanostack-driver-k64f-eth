@@ -45,13 +45,7 @@ def buildStep(target, compilerLabel, configurationFile, configurationLabel, tool
         deleteDir()
         dir("k64f-border-router-private") {
           checkout scm
-
           execute("mbed deploy --protocol ssh")
-          //Checkout mbed-os to latest release
-          dir("mbed-os") {
-            execute("git fetch origin latest")
-            execute("git checkout FETCH_HEAD")
-          }
           execute("mbed compile --build out/${target}_${configurationLabel}_${compilerLabel}/ -m ${target} -t ${toolchain} --app-config ./configs/${configurationFile} -c")
         }
         archive '**/k64f-border-router-private.bin'
