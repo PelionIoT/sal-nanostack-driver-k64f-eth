@@ -19,7 +19,7 @@ The FRDM-K64F border router application consists of four software components as 
 * [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router-private) provides the core IPv6 gateway logic and the mesh network functionality. It can be configured to the 6LoWPAN ND or Thread mode.
 * [RF driver](https://github.com/ARMmbed/atmel-rf-driver) for the Atmel AT86RF2xxx wireless 6LoWPAN shields.
 * [Ethernet driver](https://github.com/ARMmbed/sal-nanostack-driver-k64f-eth) is the Ethernet driver for the FRDM-K64F development board.
-* [SLIP driver](https://github.com/ARMmbed/sal-stack-nanostack-slip) is a generic Serial Line Internet Protocol version 6 (SLIPv6) driver for mbedOS boards.
+* [SLIP driver](https://github.com/ARMmbed/sal-stack-nanostack-slip) is a generic Serial Line Internet Protocol version 6 (SLIPv6) driver for mbed OS boards.
 
 ## Required hardware
 
