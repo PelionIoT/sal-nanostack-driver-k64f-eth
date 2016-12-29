@@ -1,8 +1,8 @@
 # FRDM-K64F border router
 
-This document describes how to configure, compile, and run a FRDM-K64F 6LoWPAN border router application on a [FRDM-K64F development board](https://www.mbed.com/en/development/hardware/boards/nxp/frdm_k64f/). The border router can be configured to work in 6loWPAN or Thread mode. 
+This document describes how to configure, compile, and run a FRDM-K64F 6LoWPAN border router application on a [FRDM-K64F development board](https://www.mbed.com/en/platform/hardware/boards/nxp/frdm_k64f/). The border router can be configured to work in 6loWPAN ND or Thread mode. 
 
-<span class="notes">**Note:** this repository is an updated version of the [public one](https://github.com/ARMmbed/k64f-border-router) which only supports 6LoWPAN.</span>
+<span class="notes">**Note:** this repository is an updated version of the [public one](https://github.com/ARMmbed/k64f-border-router) which only supports 6LoWPAN ND.</span>
 
 ## Introduction
 
@@ -16,8 +16,8 @@ The FRDM-K64F border router application consists of 4 software components as sho
 
 ![](images/frdm_k64f_br_components.png)
 
-* [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router) is the core IPv6 gateway logic and provides the mesh network functionality. It can be configured to the 6LoWPAN or Thread mode.
-* [Atmel RF driver](https://github.com/ARMmbed/atmel-rf-driver) is the driver for the Atmel AT86RF2xxx wireless 6LoWPAN shields.
+* [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router-private) is the core IPv6 gateway logic and provides the mesh network functionality. It can be configured to the 6LoWPAN ND or Thread mode.
+* [RF driver](https://github.com/ARMmbed/atmel-rf-driver) for the Atmel AT86RF2xxx wireless 6LoWPAN shields.
 * [Ethernet driver](https://github.com/ARMmbed/sal-nanostack-driver-k64f-eth) is the Ethernet driver for the FRDM-K64F development board.
 * [SLIP driver](https://github.com/ARMmbed/sal-stack-nanostack-slip) is a generic Serial Line Internet Protocol version 6 (SLIPv6) driver for mbedOS boards.
 
@@ -41,6 +41,8 @@ The FRDM-K64F border router application consists of 4 software components as sho
 * [mbed account](https://www.mbed.com).
 * A GitHub account.
 
+Check out [ARM mbed OS User Guide] (https://docs.mbed.com/docs/mbed-os-handbook/en/5.3/) for information how to develop applications on ARM mbed OS.
+
 ## Optional software
 
 * [PuTTY](http://www.chiark.greenend.org.uk/~sgtatham/putty/download.html) for serial terminal emulation, see [serial connection settings](#serial-connection-settings).
@@ -50,20 +52,93 @@ The FRDM-K64F border router application consists of 4 software components as sho
 
 ## Configuration
 
-To configure the FRDM-K64F border router you need to make changes in the application configuration file (.json). There are more example configurations in the [configs](./configs) directory. The `mbed_app.json` in the root directory is the default configuration, which is for 6LoWPAN. For the complete list of configuration options, refer to the [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router) documentation.
+To configure the FRDM-K64F border router you need to make changes in the application configuration file (.json). There are example configurations in the [configs](./configs) directory. The `mbed_app.json` in the root directory is the default configuration, which is for 6LoWPAN ND. The example configurations also contain helpful parameter descriptions. For more information on the backhaul and 6LoWPAN ND configuration options, refer to the [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router-private) documentation.
 
-```json
-{
-    "config": {
-        "heap-size": {
-             "help": "The amount of static RAM to reserve for nsdynmemlib heap",
-             "value": 50000
-        },
-        "debug-trace": "false",
-        "trace-baud-rate": "115200",
-        "backhaul-driver": "ETH",
-        "backhaul-mac-src": "BOARD",
-        "backhaul-mac": "{0x02, 0x00, 0x00, 0x00, 0x00, 0x01}"
+#### 6LoWPAN ND configuration
+
+The `network-mode` defines the 6LoWPAN mode, which can be `ND_WITH_MLE` or `ND_WITHOUT_MLE`. 
+The `security-mode` can be `PSK`, `PANA` or `NONE`. The `pana-mode` defines the PANA security mode (if PANA selected), which can be `ECC`, `ECC+PSK` or `PSK` (the default). The `psk-key` is used when the `PSK` security is chosen and `tls-psk-key` is used when `PANA` is chosen.
+
+The `ra-router-lifetime` defines the router advertisement interval in seconds (default 1024 if left out). The `beacon-protocol-id` is used to identify beacons, this should not be changed (default 4 if left out).
+
+The feature `LOWPAN_BORDER_ROUTER` is the nanostack library, which implements the 6LoWPAN ND border router networking stack.
+
+The parameter `nanostack.configuration` is needed when building the 6LoWPAN ND border router from the nanostack sources.
+
+More information on 6LoWPAN and the configuration parameters can be found from here [6LoWPAN overview] (https://docs.mbed.com/docs/arm-ipv66lowpan-stack/en/latest/quick_start_intro/index.html)
+
+```
+"config": {
+    "network-mode": "ND_WITH_MLE",
+        "security-mode": "PSK",
+        "psk-key-id": 1,
+        "psk-key": "{0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf}",
+        "pana-mode": "",
+        "tls-psk-key": "{0xcf, 0xce, 0xcd, 0xcc, 0xcb, 0xca, 0xc9, 0xc8, 0xc7, 0xc6, 0xc5, 0xc4, 0xc3, 0xc2, 0xc1, 0xc0}",
+        "tls-psk-key-id": 1,
+        "pan-id": "0x0700",
+        "network-id": "network000000000",
+        "beacon-protocol-id": 4,     
+        "rf-channel": 12,
+        "rf-channel-page": 0,
+        "rf-channel-mask": "0x07fff800",
+        "short-mac-address": "0xface",    
+        "ra-router-lifetime": 1024,
+        "rpl-instance-id": 1,
+        "rpl-idoublings": 9,
+        "rpl-imin": 12,
+        "rpl-k": 10,
+        "rpl-max-rank-inc": 2048,
+        "rpl-min-hop-rank-inc": 128,
+        "rpl-default-lifetime": 64,
+        "rpl-lifetime-unit": 60,
+        "rpl-pcs": 1,
+        "rpl-ocp": 1
+ },
+    "target_overrides": {
+        "*": {
+            "target.features_add": ["NANOSTACK", "LOWPAN_BORDER_ROUTER", "COMMON_PAL"],
+            "mbed-trace.enable": 1,
+            "nanostack.configuration": "lowpan_border_router"
+        }
+    }
+```
+
+#### Thread configuration
+
+The Thread specific parameters are listed below. The `thread-br` parameter must be set to true in order to build a Thread border router. All devices must share the same network configuration parameters, when out of band commissioning is used. Special care must be taken when defining security related parameters. Note also that PSKc is generated from password, network name and extended pan ID. The  configuration below is an example for testing purposes only; do not use them for production neither expose them.
+
+The `commissioning-dataset-timestamp` parameter is used for updating the Thread network parameters, the device with the highest value propagates the parameters to the network(in the same Realm-Local scope).
+
+The `mbedtls_thread_config.h` configures the mbed TLS for Thread use.
+
+The feature `THREAD_BORDER_ROUTER` is the nanostack library, which implements the Thread border router networking stack.
+
+The parameter `nanostack.configuration` is needed when building the Thread border router from the nanostack sources.
+
+For the Thread BR there are two example configuration files for `SLIP` and `ETH` back-haul connectivity [configs](./configs). 
+
+```
+"config": {  
+    "rf-channel": 22,
+    "rf-channel-page": 0,
+    "rf-channel-mask": "0x07fff800",
+    "thread-br": "true",   
+    "commissioning-dataset-timestamp": "0x00000001",
+    "pan-id": "0x0700",
+    "extended-pan-id": "{0xf1, 0xb5, 0xa1, 0xb2,0xc4, 0xd5, 0xa1, 0xbd }",
+    "mesh-local-prefix": "{0xfd, 0xf1, 0xb5, 0xa1, 0xb2,0xc4, 0x0, 0x0}",
+    "network-name": "\"Thread Network\"",
+    "pskd": "\"abcdefghijklmno\"",
+    "pskc": "{0xc8, 0xa6, 0x2e, 0xae, 0xf3, 0x68, 0xf3, 0x46, 0xa9, 0x9e, 0x57, 0x85, 0x98, 0x9d, 0x1c, 0xd0}",
+    "thread-master-key": "{0x10, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}"    
+     },
+    "macros": ["MBEDTLS_USER_CONFIG_FILE=\"source/mbedtls_thread_config.h\""],
+    "target_overrides": {
+        "*": {
+            "target.features_add": ["NANOSTACK", "COMMON_PAL", "THREAD_BORDER_ROUTER"],
+            "mbed-trace.enable": 1,
+            "nanostack.configuration": "thread_border_router"
         }
     }
 }
@@ -73,31 +148,29 @@ To configure the FRDM-K64F border router you need to make changes in the applica
 
 The FRDM-K64F border router application can be connected to a backhaul network. This enables you to connect the devices in a 6LoWPAN mesh network to the internet or a private LAN. Currently, the application supports SLIP (IPv6 encapsulation over a serial line) and Ethernet backhaul connectivity. 
 
-You can select your preferred option through the configuration file (field `backhaul-driver` in the `config` section). Value `SLIP` includes the SLIP driver, while the value `ETH` compiles the FRDM-K64F border router application with Ethernet backhaul support. For the Thread BR there are two separate configuration files for `SLIP` and `ETH`. You can define the MAC address on the backhaul interface manually (field `backhaul-mac-src` value `CONFIG`). Alternatively, you can use the MAC address provided by the development board (field `backhaul-mac-src` value `BOARD`). By default, the backhaul driver is set to be `ETH` and the MAC address source is `BOARD`. 
+```
+"config": {               
+    "backhaul-driver": "ETH",
+    "backhaul-mac-src": "BOARD",
+    "backhaul-mac": "{0x02, 0x00, 0x00, 0x00, 0x00, 0x01}",      
+    "backhaul-dynamic-bootstrap": true,
+    "backhaul-prefix": "\"fd00:300::\"",
+    "backhaul-next-hop": "\"fe80::1\"",
+    "backhaul-default-route": "\"::/0\"",
+    .............
+}
+```
+
+You can select your preferred option through the configuration file (field `backhaul-driver` in the `config` section). Value `SLIP` includes the SLIP driver, while the value `ETH` compiles the FRDM-K64F border router application with Ethernet backhaul support. You can define the MAC address on the backhaul interface manually (field `backhaul-mac-src` value `CONFIG`). Alternatively, you can use the MAC address provided by the development board (field `backhaul-mac-src` value `BOARD`). By default, the backhaul driver is set to be `ETH` and the MAC address source is `BOARD`. 
 
 You can also set the backhaul bootstrap mode (field `backhaul-dynamic-bootstrap`). By default, the bootstrap mode is set true, which means autonomous mode. With the autonomous mode, the border router learns the prefix information automatically from an IPv6 gateway in the ethernet/SLIP segment. When parameter is set to false, it enables you to set up  a manual configuration of backhaul-prefix and default-route.
 
-If you use static bootstrap mode, you need to configure a default route on the backhaul interface to properly forward packets between the backhaul and the 6LoWPAN mesh network. In addition to this, you need to set a backhaul prefix. Static mode creates a site-local IPv6 network from where packets cannot be routed outside.
+If you use static bootstrap mode, you need to configure a default route on the backhaul interface to properly forward packets between the backhaul and the 6LoWPAN mesh network. In addition to this, you need to set a backhaul prefix. Static mode creates a site-local IPv6 network from where packets cannot be routed outside. 
 
- For more details on how to set the backhaul prefix and default route, refer to the [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router) documentation.
+In the 6LoWPAN ND configuration when using the autonomous mode, you can set the `prefix-from-backhaul` option in the to `true` to use the same backhaul prefix on the mesh network side as well. This allows for the mesh nodes to be directly connectable from the outside of the mesh network. In the Thread network it is enough that `backhaul-dynamic-bootstrap` is set to true.
 
-In the 6LoWPAN configuration when using the autonomous mode, you can set the `prefix-from-backhaul` option in the to `true` to use the same backhaul prefix on the mesh network side as well. This allows for the mesh nodes to be directly connectable from the outside of the mesh network. In the Thread network it is enough that `backhaul-dynamic-bootstrap` is set to true.
+For more details on how to set the backhaul prefix and default route, refer to the [Nanostack Border Router](https://github.com/ARMmbed/nanostack-border-router-private) documentation.
 
-#### Thread configuration
-
-There are various parameters for the Thread network configuration. The `thread-br` parameter must be set to true in order to build a Thread border router. All devices must share the same network configuration parameters, if out of band commissioning is used. Special care must be taken when defining security related parameters. The below configuration is an example for testing purposes only; do not use them for production neither expose them.
-
-```
-    "thread-br": "true",   
-    "pan-id": "0x0700",
-    "extended-pan-id": "{0xf1, 0xb5, 0xa1, 0xb2,0xc4, 0xd5, 0xa1, 0xbd }",
-    "mesh-local-prefix": "{0xfd, 0x0, 0x0d, 0xb8, 0x0, 0x0, 0x0, 0x0}",
-    "network-name": "\"Thread Network\"",
-    "pskd": "\"abcdefghijklmno\"",
-    "pskc": "{0xc8, 0xa6, 0x2e, 0xae, 0xf3, 0x68, 0xf3, 0x46, 0xa9, 0x9e, 0x57, 0x85, 0x98, 0x9d, 0x1c, 0xd0}",
-    "thread-master-key": "{0x10, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}"
-
-```
 
 ####Note on the SLIP backhaul driver
 
@@ -145,7 +218,9 @@ After changing the radio shield, you need to recompile the application.
 2. Clone the repository: `git clone git@github.com:ARMmbed/k64f-border-router-private.git`
 3. Modify the `mbed_app.json` file to reflect to your network setup or use the ready made configuration under the configs directory.
 4. Deploy required libraries: `mbed deploy`
-6. Build: `mbed compile -m K64F -t GCC_ARM` --app-config configs/xxx.json
+6. To build BR: 
+   * Thread BR: `mbed compile -m K64F -t GCC_ARM --app-config configs/Thread_K64F_Atmel_RF_config.json`
+   * 6LoWPAN ND BR: `mbed compile -m K64F -t GCC_ARM --app-config configs/6lowpan_K64F_Atmel_RF_config.json`
 
 The binary will be generated into `BUILD/K64F/GCC_ARM/k64f-border-router-private.bin`
 
