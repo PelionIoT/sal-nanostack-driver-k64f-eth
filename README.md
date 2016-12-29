@@ -59,9 +59,13 @@ To configure the FRDM-K64F border router you need to make changes in the applica
 The `network-mode` defines the 6LoWPAN mode, which can be `ND_WITH_MLE` or `ND_WITHOUT_MLE`. 
 The `security-mode` can be `PSK`, `PANA` or `NONE`. The `pana-mode` defines the PANA security mode (if PANA selected), which can be `ECC`, `ECC+PSK` or `PSK` (the default). The `psk-key` is used when the `PSK` security is chosen and `tls-psk-key` is used when `PANA` is chosen.
 
+The `ra-router-lifetime` defines the router advertisement interval in seconds (default 1024 if left out). The `beacon-protocol-id` is used to identify beacons, this should not be changed (default 4 if left out).
+
 The feature `LOWPAN_BORDER_ROUTER` is the nanostack library, which implements the 6LoWPAN ND border router networking stack.
 
 The parameter `nanostack.configuration` is needed when building the 6LoWPAN ND border router from the nanostack sources.
+
+More information on 6LoWPAN and the configuration parameters can be found from here [6LoWPAN overview] (https://docs.mbed.com/docs/arm-ipv66lowpan-stack/en/latest/quick_start_intro/index.html)
 
 ```
 "config": {
@@ -102,9 +106,9 @@ The parameter `nanostack.configuration` is needed when building the 6LoWPAN ND b
 
 #### Thread configuration
 
-The Thread specific parameters are listed below. The `thread-br` parameter must be set to true in order to build a Thread border router. All devices must share the same network configuration parameters, when out of band commissioning is used. Special care must be taken when defining security related parameters. For example PSKc is generated from password, network name and extended pan ID. The  configuration below is an example for testing purposes only; do not use them for production neither expose them.
+The Thread specific parameters are listed below. The `thread-br` parameter must be set to true in order to build a Thread border router. All devices must share the same network configuration parameters, when out of band commissioning is used. Special care must be taken when defining security related parameters. Note also that PSKc is generated from password, network name and extended pan ID. The  configuration below is an example for testing purposes only; do not use them for production neither expose them.
 
-The `commissioning-dataset-timestamp` parameter is used for updating the Thread network parameters, the device with the highest value updates the its values to the network (in the same Realm-Local scope).
+The `commissioning-dataset-timestamp` parameter is used for updating the Thread network parameters, the device with the highest value propagates the parameters to the network(in the same Realm-Local scope).
 
 The `mbedtls_thread_config.h` configures the mbed TLS for Thread use.
 
