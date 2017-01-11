@@ -23,7 +23,7 @@ The FRDM-K64F border router application consists of four software components as 
 
 ## Required hardware
 
-* Two FRDM-K64F development boards, one for the border router application and another one for the client application [the 6LoWPAN mbed client application](https://github.com/ARMmbed/mbed-os-example-client).
+* Two FRDM-K64F development boards, one for the border router application and another one for the client application.
 * Two mbed 6LoWPAN shields (AT86RF212B/[AT86RF233](http://uk.rs-online.com/web/p/radio-frequency-development-kits/9054107/)) for wireless 6LoWPAN mesh connectivity.
   * Alternatively, you can use [NXP MCR20A](http://www.nxp.com/products/software-and-tools/hardware-development-tools/freedom-development-boards/freedom-development-board-for-mcr20a-wireless-transceiver:FRDM-CR20A) shields.
   * See [Switching the RF shield](#switching-the-rf-shield).
@@ -34,7 +34,7 @@ The FRDM-K64F border router application consists of four software components as 
 
 ## Required software
 
-* [Thread test application] (https://github.com/ARMmbed/thread-testapp-private) for connecting to the border router.
+* The client [Thread test application] (https://github.com/ARMmbed/thread-testapp-private) for connecting to the border router.
 * [mbed-cli](https://github.com/ARMmbed/mbed-cli#installing-mbed-cli) command line interface.
 * A compiler. Use one of the following:
     * [GCC ARM Embedded](https://launchpad.net/gcc-arm-embedded).
