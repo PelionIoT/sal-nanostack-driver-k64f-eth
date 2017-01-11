@@ -34,6 +34,7 @@ The FRDM-K64F border router application consists of four software components as 
 
 ## Required software
 
+* [Thread test application] (https://github.com/ARMmbed/thread-testapp-private) for connecting to the border router.
 * [mbed-cli](https://github.com/ARMmbed/mbed-cli#installing-mbed-cli) command line interface.
 * A compiler. Use one of the following:
     * [GCC ARM Embedded](https://launchpad.net/gcc-arm-embedded).
