@@ -62,9 +62,9 @@ Parameter|Description
 ---------|-----------
 `network-mode`|Defines the 6LoWPAN mode, currently on option is `ND_WITH_MLE`.
 `security-mode`|Link layer security. Can be `PSK`, `PANA` or `NONE`. 
-`pana-mode`|Defines the PANA security mode (if PANA selected), which can be `ECC`, `ECC+PSK` or `PSK` (the default). 
-`psk-key`|Is used when the `PSK` security is selected.
-`tls-psk-key`|Is used when `PANA` is selected.
+`psk-key`|Is used when the PSK `security-mode` is selected.
+`pana-mode`|Defines the PANA security mode (when PANA selected in `security-mode`). This can be `ECC`, `ECC+PSK` or `PSK` (the default). 
+`tls-psk-key`|Is used when the `security-mode` is `PANA` and the `PANA` mode is `ECC+PSK` or `PSK`.
 `ra-router-lifetime`|Defines the router advertisement interval in seconds (default 1024 if left out). 
 `beacon-protocol-id`|Is used to identify beacons, this should not be changed (default 4 if left out).
 `nanostack.configuration`|Is needed when building the 6LoWPAN ND border router from the nanostack sources.
