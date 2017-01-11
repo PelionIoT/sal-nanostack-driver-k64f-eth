@@ -59,8 +59,8 @@ The essential configuration parameters are described in the following table:
 
 Parameter|Description
 ---------|-----------
-`network-mode`|Defines the 6LoWPAN mode, which can be `ND_WITH_MLE` or `ND_WITHOUT_MLE`.
-`security-mode`|Can be `PSK`, `PANA` or `NONE`. 
+`network-mode`|Defines the 6LoWPAN mode, currently on option is `ND_WITH_MLE`.
+`security-mode`|Link layer security. Can be `PSK`, `PANA` or `NONE`. 
 `pana-mode`|Defines the PANA security mode (if PANA selected), which can be `ECC`, `ECC+PSK` or `PSK` (the default). 
 `psk-key`|Is used when the `PSK` security is selected.
 `tls-psk-key`|Is used when `PANA` is selected.
