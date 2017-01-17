@@ -35,7 +35,7 @@ The FRDM-K64F border router application consists of four software components as 
 ## Required software
 
 * Use the [Thread test application] (https://github.com/ARMmbed/thread-testapp-private) for connecting to the K64F Thread border router. Note that the Thread test application must be out-of-bound commissioned, therefore the Thread border router configuration must be used for compilation (to be used without ethernet connection).
-* Use the [mbed-os-example-client application] (https://github.com/ARMmbed/mbed-os-example-client) for connecting to the 6LoWPAN ND border router.
+* Use the [mbed-os-example-client application] (https://github.com/ARMmbed/mbed-os-example-client) for connecting to the 6LoWPAN ND border router (Thread not supported).
 * [mbed-cli](https://github.com/ARMmbed/mbed-cli#installing-mbed-cli) command line interface.
 * A compiler. Use one of the following:
     * [GCC ARM Embedded](https://launchpad.net/gcc-arm-embedded).
