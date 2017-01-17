@@ -2,7 +2,7 @@
 
 This document describes how to configure, compile, and run a FRDM-K64F 6LoWPAN border router application on a [FRDM-K64F development board](https://www.mbed.com/en/platform/hardware/boards/nxp/frdm_k64f/). The border router can be configured to work in 6loWPAN ND or Thread mode. 
 
-<span class="notes">**Note:** this repository is an updated version of the [public one](https://github.com/ARMmbed/k64f-border-router) which only supports 6LoWPAN ND.</span>
+<span class="notes">**Note:** this repository is an updated version of the [public one](https://github.com/ARMmbed/k64f-border-router), which only supports 6LoWPAN ND. This repository adds the Thread support.</span>
 
 ## Introduction
 
