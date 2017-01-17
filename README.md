@@ -34,7 +34,7 @@ The FRDM-K64F border router application consists of four software components as 
 
 ## Required software
 
-* Use the [Thread test application] (https://github.com/ARMmbed/thread-testapp-private) for connecting to the K64F Thread border router. Note that the Thread test application must be out-of-bound commissioned, therefore the Thread border router configuration must be used for compilation. When the device connects to the Thread BR it becomes a REED device (do not connect the ethernet cable).
+* Use the [Thread test application] (https://github.com/ARMmbed/thread-testapp-private) for connecting to the K64F Thread border router. Note that the Thread test application must be out-of-bound commissioned, therefore the Thread border router configuration (RTOS_example_Thread_BR.json) must be used for compilation. When the device connects to the Thread BR it becomes a REED device (do not connect the ethernet cable).
 * Use the [mbed-os-example-client application] (https://github.com/ARMmbed/mbed-os-example-client) for connecting to the 6LoWPAN ND border router (This BR is not compatible with the mbed Client example configured as Thread).
 * [mbed-cli](https://github.com/ARMmbed/mbed-cli#installing-mbed-cli) command line interface.
 * A compiler. Use one of the following:
