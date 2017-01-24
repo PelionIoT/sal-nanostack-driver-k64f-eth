@@ -11,7 +11,7 @@
     "thread-br": "true",        
     "trace-baud-rate": "115200",
     "backhaul-driver": "SLIP",
-    "slip_hw_flow_control": "false",
+    "slip_hw_flow_control": "true",
     "slip_serial_baud_rate": "921600",
     "backhaul-mac-src": "BOARD",
     "backhaul-mac": "{0x02, 0x00, 0x00, 0x00, 0x00, 0x01}",	
