@@ -2,7 +2,7 @@
 
 This document describes how to configure, compile, and run a FRDM-K64F 6LoWPAN border router application on a [FRDM-K64F development board](https://www.mbed.com/en/platform/hardware/boards/nxp/frdm_k64f/). The border router can be configured to work in 6loWPAN ND or Thread mode. 
 
-<span class="notes">**Note:** this repository is an updated version of the [public one](https://github.com/ARMmbed/k64f-border-router) which only supports 6LoWPAN ND.</span>
+<span class="notes">**Note:** this repository is an updated version of the [public one](https://github.com/ARMmbed/k64f-border-router), which only supports 6LoWPAN ND. This repository adds the Thread support.</span>
 
 ## Introduction
 
@@ -23,7 +23,7 @@ The FRDM-K64F border router application consists of four software components as 
 
 ## Required hardware
 
-* Two FRDM-K64F development boards, one for the border router application and another one for the client application [the 6LoWPAN mbed client application](https://github.com/ARMmbed/mbed-os-example-client).
+* Two FRDM-K64F development boards, one for the border router application and another one for the client application.
 * Two mbed 6LoWPAN shields (AT86RF212B/[AT86RF233](http://uk.rs-online.com/web/p/radio-frequency-development-kits/9054107/)) for wireless 6LoWPAN mesh connectivity.
   * Alternatively, you can use [NXP MCR20A](http://www.nxp.com/products/software-and-tools/hardware-development-tools/freedom-development-boards/freedom-development-board-for-mcr20a-wireless-transceiver:FRDM-CR20A) shields.
   * See [Switching the RF shield](#switching-the-rf-shield).
@@ -34,6 +34,8 @@ The FRDM-K64F border router application consists of four software components as 
 
 ## Required software
 
+* Use the [Thread test application] (https://github.com/ARMmbed/thread-testapp-private) for connecting to the K64F Thread border router. Note that the Thread test application must be out-of-bound commissioned, therefore the Thread border router configuration (RTOS_example_Thread_BR.json) must be used for compilation. When the device connects to the Thread BR it becomes a REED device (do not connect the ethernet cable).
+* Use the [mbed-os-example-client application] (https://github.com/ARMmbed/mbed-os-example-client) for connecting to the 6LoWPAN ND border router (This BR is not compatible with the mbed Client example configured as Thread).
 * [mbed-cli](https://github.com/ARMmbed/mbed-cli#installing-mbed-cli) command line interface.
 * A compiler. Use one of the following:
     * [GCC ARM Embedded](https://launchpad.net/gcc-arm-embedded).
@@ -59,11 +61,11 @@ The essential configuration parameters are described in the following table:
 
 Parameter|Description
 ---------|-----------
-`network-mode`|Defines the 6LoWPAN mode, which can be `ND_WITH_MLE` or `ND_WITHOUT_MLE`.
-`security-mode`|Can be `PSK`, `PANA` or `NONE`. 
-`pana-mode`|Defines the PANA security mode (if PANA selected), which can be `ECC`, `ECC+PSK` or `PSK` (the default). 
-`psk-key`|Is used when the `PSK` security is selected.
-`tls-psk-key`|Is used when `PANA` is selected.
+`network-mode`|Defines the 6LoWPAN mode, currently on option is `ND_WITH_MLE`.
+`security-mode`|Link layer security. Can be `PSK`, `PANA` or `NONE`. 
+`psk-key`|Is used when the PSK `security-mode` is selected.
+`pana-mode`|Defines the PANA security mode (when PANA selected in `security-mode`). This can be `ECC`, `ECC+PSK` or `PSK` (the default). 
+`tls-psk-key`|Is used when the `security-mode` is `PANA` and the `PANA` mode is `ECC+PSK` or `PSK`.
 `ra-router-lifetime`|Defines the router advertisement interval in seconds (default 1024 if left out). 
 `beacon-protocol-id`|Is used to identify beacons, this should not be changed (default 4 if left out).
 `nanostack.configuration`|Is needed when building the 6LoWPAN ND border router from the nanostack sources.
