@@ -29,10 +29,9 @@
 #define HAVE_DEBUG 1
 #include "ns_trace.h"
 #include "nsdynmemLIB.h"
-#ifdef MBED_CONF_RTOS_PRESENT
-#include "cmsis_os.h"
-#endif
-
+#include "cmsis_os2.h"
+#include "rtx_os.h"
+#include <mbed_assert.h>
 
 /* Macro Definitions */
 #ifndef MEM_ALLOC
@@ -81,18 +80,24 @@ static enet_handle_t global_enet_handle;
 /* Nanostack generic PHY driver structure */
 static phy_device_driver_s eth_device_driver;
 
-#ifdef MBED_CONF_RTOS_PRESENT
-
 /* Thread IDs for the threads we will start */
-static osThreadId eth_irq_thread_id;
+static osThreadId_t eth_irq_thread_id;
+// Statically allocate size for worker thread
+static uint64_t eth_thread_stk[512];
+static osRtxThread_t eth_thread_tcb;
+static const osThreadAttr_t eth_thread_attr = {
+  .stack_mem  = &eth_thread_stk[0],
+  .cb_mem  = &eth_thread_tcb,
+  .stack_size = sizeof(eth_thread_stk),
+  .cb_size = sizeof(eth_thread_tcb),
+};
 
 /* Signals for IRQ thread */
-#define SIG_TX  1
-#define SIG_RX  2
+#define SIG_TX  0x0001U
+#define SIG_RX  0x0002U
 
 /* This routine starts a 'Thread' which handles IRQs*/
 static void Eth_IRQ_Thread_Create(void);
-#endif /*MBED_CONF_RTOS_PRESENT*/
 
 /* Main data structure for keeping Eth module data */
 typedef struct Eth_Buf_Data_S {
@@ -146,9 +151,7 @@ void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*driver_status_cb)(uint
         k64f_eth_initialize(mac_ptr);
         eth_driver_enabled = 1;
         driver_readiness_status_callback(link_currently_up, eth_interface_id);
-#ifdef MBED_CONF_RTOS_PRESENT
         Eth_IRQ_Thread_Create();
-#endif
         eventOS_timeout_ms(PHY_LinkStatus_Task, 500, NULL);
     }
 }
@@ -584,24 +587,17 @@ static void ethernet_event_callback(ENET_Type *base, enet_handle_t *handle, enet
 {
     switch (event) {
         case kENET_RxEvent:
-#ifdef MBED_CONF_RTOS_PRESENT
-            osSignalSet(eth_irq_thread_id, SIG_RX);
-#else
-            enet_rx_task();
-#endif /*MBED_CONF_RTOS_PRESENT*/
+            osThreadFlagsSet(eth_irq_thread_id, SIG_RX);
             break;
         case kENET_TxEvent:
-#ifdef MBED_CONF_RTOS_PRESENT
-            osSignalSet(eth_irq_thread_id, SIG_TX);
-#else
-            enet_tx_task();
-#endif /*MBED_CONF_RTOS_PRESENT*/
+            osThreadFlagsSet(eth_irq_thread_id, SIG_TX);
             break;
         default:
             break;
     }
 }
 
+extern uint32_t ENET_GetInstance(ENET_Type *base);
 static status_t Initialize_Enet_PHY(ENET_Type *base, uint32_t phyAddr, uint32_t srcClock_Hz)
 {
     status_t result = kStatus_Success;
@@ -650,7 +646,6 @@ static status_t AutoNegotiation(ENET_Type *base, uint32_t phyAddr)
     return result;
 }
 
-#ifdef MBED_CONF_RTOS_PRESENT
 /** \brief  Thread started by ETH_IRQ_Thread_Create
  *
  *      Used only in case of  mbed RTOS. This Thread handles the signals coming
@@ -658,21 +653,19 @@ static status_t AutoNegotiation(ENET_Type *base, uint32_t phyAddr)
  *
  *  \param[in] Optional user-given parameter
  */
-static void Eth_IRQ_Thread(const void *x)
+static __NO_RETURN void Eth_IRQ_Thread(void *arg)
 {
+    (void)arg;
     for (;;) {
-        osEvent event =  osSignalWait(0, osWaitForever);
-        if (event.status != osEventSignal) {
-            continue;
-        }
+        uint32_t event =  osThreadFlagsWait(SIG_RX|SIG_TX, osFlagsWaitAny, osWaitForever);
 
         eth_if_lock();
 
-        if (event.value.signals & SIG_RX) {
+        if (event & SIG_RX) {
             enet_rx_task();
         }
 
-        if (event.value.signals & SIG_TX) {
+        if (event & SIG_TX) {
             enet_tx_task();
         }
 
@@ -680,17 +673,12 @@ static void Eth_IRQ_Thread(const void *x)
     }
 }
 
-
 /** \brief  Function creating the IRQ thread
  *
  *      Used only in case of  mbed RTOS. Creates a thread for IRQ task.
  */
 static void Eth_IRQ_Thread_Create(void)
 {
-    static osThreadDef(Eth_IRQ_Thread, osPriorityRealtime, 512);
-    eth_irq_thread_id = osThreadCreate(osThread(Eth_IRQ_Thread), NULL);
+    eth_irq_thread_id = osThreadNew(Eth_IRQ_Thread, NULL, &eth_thread_attr);
+    MBED_ASSERT(eth_irq_thread_id != NULL);
 }
-#endif /*MBED_CONF_RTOS_PRESENT*/
-
-
-
