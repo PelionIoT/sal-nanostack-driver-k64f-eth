@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef NANOSTACK_RF_PHY_ATMEL_H_
-#define NANOSTACK_RF_PHY_ATMEL_H_
+#ifndef NANOSTACK_ETH_PHY_K64F_H_
+#define NANOSTACK_ETH_PHY_K64F_H_
 
 #include "NanostackEthernetPhy.h"
 
@@ -29,4 +29,4 @@ private:
     uint8_t _mac[6];
 };
 
-#endif /* NANOSTACK_RF_PHY_ATMEL_H_ */
+#endif /* NANOSTACK_ETH_PHY_K64F_H_ */
