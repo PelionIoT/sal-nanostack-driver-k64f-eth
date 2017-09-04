@@ -39,7 +39,11 @@ void initialize_enet_hardware(void)
 
 #ifndef FEATURE_UVISOR
     /* Disable MPU only when uVisor is not around. */
+#if defined(SYSMPU)
+    SYSMPU->CESR &= ~SYSMPU_CESR_VLD_MASK;
+#else
     MPU->CESR &= ~MPU_CESR_VLD_MASK;
+#endif
 #endif/*FEATURE_UVISOR*/
 
     /* Ungate the port clock */
