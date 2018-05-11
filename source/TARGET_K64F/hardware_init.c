@@ -30,6 +30,12 @@
 
 #include "fsl_port.h"
 
+/* Cope with different SDKs */
+#ifndef SYSMPU
+#define SYSMPU MPU
+#define SYSMPU_CESR_VLD_MASK MPU_CESR_VLD_MASK
+#endif
+
 /*******************************************************************************
  * Code
  ******************************************************************************/
@@ -38,7 +44,7 @@ void initialize_enet_hardware(void)
     port_pin_config_t configENET = {0};
 
     /* Disable MPU. */
-    MPU->CESR &= ~MPU_CESR_VLD_MASK;
+    SYSMPU->CESR &= ~SYSMPU_CESR_VLD_MASK;
 
     CLOCK_EnableClock(kCLOCK_PortC);
     CLOCK_EnableClock(kCLOCK_PortB);

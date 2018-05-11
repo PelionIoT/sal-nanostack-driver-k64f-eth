@@ -30,6 +30,12 @@
 
 #include "fsl_port.h"
 
+/* Cope with different SDKs */
+#ifndef SYSMPU
+#define SYSMPU MPU
+#define SYSMPU_CESR_VLD_MASK MPU_CESR_VLD_MASK
+#endif
+
 /*******************************************************************************
  * Code
  ******************************************************************************/
