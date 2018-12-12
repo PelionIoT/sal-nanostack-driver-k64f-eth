@@ -75,6 +75,9 @@ void (*driver_readiness_status_callback)(uint8_t, int8_t) = 0;
  * Initializes the Eth module hardware */
 extern void initialize_enet_hardware(void);
 
+/* External ENET functions */
+extern uint32_t ENET_GetInstance(ENET_Type *base);
+
 /* Global Eth module Handle*/
 static enet_handle_t global_enet_handle;
 
