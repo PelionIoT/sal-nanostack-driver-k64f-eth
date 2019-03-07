@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, ARM Limited, All Rights Reserved
+ * Copyright (c) 2014-2019 ARM Limited, All Rights Reserved
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -23,6 +23,9 @@
 #include "arm_hal_interrupt.h"
 #include "ns_types.h"
 #include "k64f_eth_nanostack_port.h"
+
+#if defined(TARGET_K64F) || defined (TARGET_K66F)
+
 #include "fsl_enet.h"
 #include "fsl_phy.h"
 #include "eventOS_event_timer.h"
@@ -695,5 +698,11 @@ static void Eth_IRQ_Thread_Create(void)
 }
 #endif /*MBED_CONF_RTOS_PRESENT*/
 
-
+#else // TARGET_K64F or TARGET_K66F
+void arm_eth_phy_device_register(uint8_t *mac_ptr, void (*driver_status_cb)(uint8_t, int8_t))
+{
+    (void)mac_ptr;
+    (void)driver_status_cb;
+}
+#endif
 
