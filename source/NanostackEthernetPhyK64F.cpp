@@ -22,7 +22,7 @@ NanostackEthernetPhyK64F::NanostackEthernetPhyK64F()
 int8_t NanostackEthernetPhyK64F::phy_register()
 {
     arm_eth_phy_device_register(_mac, driver_status_cb);
-    enet_sem.wait();
+    enet_sem.acquire();
     return iface_id;
 }
 
